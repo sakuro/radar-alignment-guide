@@ -1,0 +1,11 @@
+{
+  "name": "radar-alignment-guide",
+  "version": "0.0.1",
+  "title": "Radar Alignment Guide",
+  "author": "sakuro",
+  "description": "Radar Alignment Guide",
+  "factorio_version": "2.1",
+  "dependencies": [
+    "base >= 2.1"
+  ]
+}

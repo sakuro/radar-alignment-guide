@@ -1,0 +1,15 @@
+[tools]
+gh = "2.98.0"
+jq = "1.8.2"
+"github:sakuro/factorix" = "0.23.0"
+
+[settings]
+minimum_release_age = "3d"
+
+[task_config]
+includes = ["tasks"]
+
+[env]
+MOD_LICENSE = "default_mit"
+MOD_CATEGORY = "utilities"
+MOD_TAGS = ""
