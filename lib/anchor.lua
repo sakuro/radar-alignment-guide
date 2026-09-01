@@ -179,4 +179,22 @@ function Anchor.on_object_destroyed(event)
   end
 end
 
+--- Call when a radar entity is built. Auto-designates it as the anchor if
+--- its force/surface has none yet; otherwise warns the building player (if
+--- any) if its prototype differs from the current anchor's.
+function Anchor.on_built(radar, player)
+  local current = Anchor.get(radar.force.index, radar.surface.index)
+  if not current then
+    Anchor.set(radar, true)
+    radar.force.print({"radar-alignment-guide.anchor-auto-set-message", radar.gps_tag})
+    return
+  end
+  if current.name ~= radar.name and player and player.valid then
+    player.create_local_flying_text({
+      text = {"radar-alignment-guide.anchor-type-mismatch-flying-text"},
+      position = radar.position,
+    })
+  end
+end
+
 return Anchor
