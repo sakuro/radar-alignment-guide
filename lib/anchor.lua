@@ -191,10 +191,14 @@ function Anchor.on_built(radar, player)
     radar.force.print({"radar-alignment-guide.anchor-auto-set-message", radar.gps_tag})
     return
   end
-  local mismatched = current.name ~= radar.name or current.quality.name ~= radar.quality.name
-  if mismatched and player and player.valid then
+  local type_mismatched = current.name ~= radar.name
+  local quality_mismatched = current.quality.name ~= radar.quality.name
+  if (type_mismatched or quality_mismatched) and player and player.valid then
+    local message_key = type_mismatched
+      and "radar-alignment-guide.anchor-type-mismatch-flying-text"
+      or "radar-alignment-guide.anchor-quality-mismatch-flying-text"
     player.create_local_flying_text({
-      text = {"radar-alignment-guide.anchor-type-mismatch-flying-text"},
+      text = {message_key},
       position = radar.position,
     })
   end
