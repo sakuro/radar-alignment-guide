@@ -8,11 +8,17 @@ local COLOR_SETTING = "radar-alignment-guide-highlight-color"
 local function ensure_storage()
   storage.highlight_renders = storage.highlight_renders or {}
   storage.warned_players = storage.warned_players or {}
-  storage.highlight_last_state = storage.highlight_last_state or {}
 end
 
 function Highlight.init()
   ensure_storage()
+  -- Reset unconditionally rather than `or {}`: this is a pure redraw-skip
+  -- cache, not user-facing data, and its entry shape has changed between
+  -- mod versions before (raw position -> chunk range) — a stale entry
+  -- from an older version would otherwise crash the comparison in
+  -- Highlight.on_tick on the very next tick. Losing the cache just costs
+  -- one extra harmless redraw for players currently holding a radar item.
+  storage.highlight_last_state = {}
 end
 
 local function is_radar_item_prototype(item_prototype)
@@ -52,25 +58,35 @@ local function clear_player_highlight(player_index)
   storage.highlight_renders[player_index] = nil
 end
 
+--- The player's current surface and visible chunk range. Two states with
+--- the same range produce the same set of highlighted chunks, even if the
+--- underlying position/zoom differ slightly, so callers compare ranges
+--- (not raw position/zoom) to decide whether a redraw is needed.
 local function current_highlight_state(player)
   return {
     surface_index = player.surface.index,
-    x = player.position.x,
-    y = player.position.y,
-    zoom = player.zoom,
+    range = Grid.visible_chunk_range(player.position, player.display_resolution, player.zoom),
   }
 end
 
 local function highlight_state_changed(a, b)
-  return not b
-    or a.surface_index ~= b.surface_index
-    or a.x ~= b.x
-    or a.y ~= b.y
-    or a.zoom ~= b.zoom
+  if not b then
+    return true
+  end
+  local ar, br = a.range, b.range
+  return a.surface_index ~= b.surface_index
+    or ar.left ~= br.left
+    or ar.right ~= br.right
+    or ar.top ~= br.top
+    or ar.bottom ~= br.bottom
 end
 
-local function draw_player_highlight(player)
+--- `state` (from current_highlight_state) is optional; callers that already
+--- computed it for the change-detection check (Highlight.on_tick) pass it
+--- through to avoid recomputing Grid.visible_chunk_range.
+local function draw_player_highlight(player, state)
   clear_player_highlight(player.index)
+  state = state or current_highlight_state(player)
   local anchor = Anchor.get(player.force.index, player.surface.index)
   if not anchor then
     if not storage.warned_players[player.index] then
@@ -80,6 +96,7 @@ local function draw_player_highlight(player)
         create_at_cursor = true,
       })
     end
+    storage.highlight_last_state[player.index] = state
     return
   end
   local radius = anchor.prototype.get_max_distance_of_nearby_sector_revealed(anchor.quality)
@@ -88,7 +105,7 @@ local function draw_player_highlight(player)
     x = math.floor(anchor.position.x / Grid.CHUNK_TILES),
     y = math.floor(anchor.position.y / Grid.CHUNK_TILES),
   }
-  local range = Grid.visible_chunk_range(player.position, player.display_resolution, player.zoom)
+  local range = state.range
   local color = settings.get_player_settings(player)[COLOR_SETTING].value
   local render_ids = {}
   for chunk_x = range.left, range.right do
@@ -107,7 +124,7 @@ local function draw_player_highlight(player)
     end
   end
   storage.highlight_renders[player.index] = render_ids
-  storage.highlight_last_state[player.index] = current_highlight_state(player)
+  storage.highlight_last_state[player.index] = state
 end
 
 --- Wire to defines.events.on_player_cursor_stack_changed.
@@ -125,16 +142,23 @@ end
 --- API doesn't expose) for every player currently holding a radar item or
 --- radar ghost. Scans all connected players (not just ones already
 --- highlighting) since on_player_cursor_stack_changed is not guaranteed to
---- fire for every cursor_ghost change. Skips the redraw when nothing
---- (surface, position, zoom) has changed since the last draw, since
---- destroying and recreating every visible rectangle every tick regardless
---- of movement is wasted render churn.
+--- fire for every cursor_ghost change. Skips the redraw when the visible
+--- chunk range (surface + range, not raw position/zoom) hasn't changed
+--- since the last draw, since destroying and recreating every visible
+--- rectangle every tick regardless of sub-chunk movement is wasted render
+--- churn. This also applies to the no-anchor case (draw_player_highlight
+--- caches that state too): a stationary player holding a radar item on a
+--- surface with no anchor is skipped on repeat ticks, at the cost of not
+--- noticing an anchor becoming available until this player's cached state
+--- changes (they move, re-pick the item, or the highlight is otherwise
+--- redrawn) — an acceptable tradeoff since the same staleness already
+--- applies to an anchor being replaced while this player stays still.
 function Highlight.on_tick()
   for _, player in pairs(game.connected_players) do
     if player.valid and is_holding_radar(player) then
       local state = current_highlight_state(player)
       if highlight_state_changed(state, storage.highlight_last_state[player.index]) then
-        draw_player_highlight(player)
+        draw_player_highlight(player, state)
       end
     else
       storage.highlight_last_state[player.index] = nil
