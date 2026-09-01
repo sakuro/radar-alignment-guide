@@ -50,7 +50,7 @@ end
 local function create_marker(radar)
   storage.anchor_markers[radar.force.index] = storage.anchor_markers[radar.force.index] or {}
   local render_object = rendering.draw_sprite({
-    sprite = "utility/check_mark_green",
+    sprite = "utility/reference_point",
     target = radar,
     surface = radar.surface,
     forces = {radar.force},
