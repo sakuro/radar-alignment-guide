@@ -8,6 +8,11 @@
     {
       "matchUpdateTypes": ["major"],
       "automerge": false
+    },
+    {
+      "matchManagers": ["mise"],
+      "matchDepNames": ["lua"],
+      "enabled": false
     }
   ]
 }
