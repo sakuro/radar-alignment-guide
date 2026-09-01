@@ -1,2 +1,7 @@
 ---------------------------------------------------------------------------------------------------
 Version: Unreleased
+  Features:
+    - Toggle a per-force, per-surface radar alignment anchor with a keybind; the first radar built on a surface is auto-designated.
+    - Highlight on-grid chunks while holding a radar item, based on the anchor radar's coverage.
+    - Warn when placing a radar of a different type than the current anchor.
+    - Optional map tag on the anchor radar.
