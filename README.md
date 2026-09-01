@@ -10,5 +10,3 @@ Helps you place radars on a regular grid by highlighting valid placement chunks 
 - **Chunk highlight**: while holding a radar item or ghost, chunks aligned with the anchor's coverage are tinted on the map; the highlight color is configurable per player.
 - **Mismatch warning**: placing a radar of a different type than the current anchor shows a flying-text warning.
 - **Map tag** (off by default): optionally marks the anchor radar's location on the map and remote view.
-
-Generated from [sakuro/factorio-mod-scaffold](https://github.com/sakuro/factorio-mod-scaffold)
