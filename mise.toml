@@ -4,7 +4,7 @@ gitleaks = "8.30"
 jq = "1.8.2"
 hk = "1.56"
 "github:sakuro/factorix" = "0.23.0"
-lua = "5.5.1"
+lua = "5.2"
 
 [hooks]
 postinstall = "luarocks install --local busted"
