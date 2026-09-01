@@ -8,11 +8,17 @@ local COLOR_SETTING = "radar-alignment-guide-highlight-color"
 local function ensure_storage()
   storage.highlight_renders = storage.highlight_renders or {}
   storage.warned_players = storage.warned_players or {}
-  storage.highlight_last_state = storage.highlight_last_state or {}
 end
 
 function Highlight.init()
   ensure_storage()
+  -- Reset unconditionally rather than `or {}`: this is a pure redraw-skip
+  -- cache, not user-facing data, and its entry shape has changed between
+  -- mod versions before (raw position -> chunk range) — a stale entry
+  -- from an older version would otherwise crash the comparison in
+  -- Highlight.on_tick on the very next tick. Losing the cache just costs
+  -- one extra harmless redraw for players currently holding a radar item.
+  storage.highlight_last_state = {}
 end
 
 local function is_radar_item_prototype(item_prototype)
