@@ -32,3 +32,11 @@ script.on_event(defines.events.on_robot_built_entity, on_built, radar_filter)
 script.on_event(defines.events.on_space_platform_built_entity, on_built, radar_filter)
 script.on_event(defines.events.script_raised_built, on_built, radar_filter)
 script.on_event(defines.events.script_raised_revive, on_built, radar_filter)
+
+script.on_event(defines.events.on_object_destroyed, Anchor.on_object_destroyed)
+
+script.on_event(defines.events.on_runtime_mod_setting_changed, function(event)
+  if event.setting == "radar-alignment-guide-show-map-tag" then
+    Anchor.refresh_all_chart_tags()
+  end
+end)
