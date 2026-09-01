@@ -1,7 +1,13 @@
 local Anchor = require("lib.anchor")
+local Highlight = require("lib.highlight")
 
-script.on_init(Anchor.init)
-script.on_configuration_changed(Anchor.init)
+local function init()
+  Anchor.init()
+  Highlight.init()
+end
+
+script.on_init(init)
+script.on_configuration_changed(init)
 
 script.on_event("radar-alignment-guide-toggle-anchor", function(event)
   local player = game.get_player(event.player_index)
@@ -40,3 +46,12 @@ script.on_event(defines.events.on_runtime_mod_setting_changed, function(event)
     Anchor.refresh_all_chart_tags()
   end
 end)
+
+script.on_event(defines.events.on_player_cursor_stack_changed, function(event)
+  local player = game.get_player(event.player_index)
+  if player and player.valid then
+    Highlight.on_cursor_stack_changed(player)
+  end
+end)
+
+script.on_event(defines.events.on_tick, Highlight.on_tick)
