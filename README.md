@@ -2,7 +2,7 @@
 
 [![Downloads](https://img.shields.io/badge/dynamic/json.svg?label=Downloads&url=https%3A%2F%2Fmods.factorio.com%2Fapi%2Fmods%2Fradar-alignment-guide&query=%24.downloads_count)](https://mods.factorio.com/mod/radar-alignment-guide)
 
-Helps you place radars on a regular grid by highlighting valid placement chunks while you hold a radar item, based on the coverage of a designated anchor radar.
+Helps you place radars without overlapping coverage by highlighting placement chunks while you hold a radar, based on the coverage of a designated anchor radar.
 
 ## Features
 
