@@ -146,7 +146,11 @@ local function draw_player_highlight(player, state)
 end
 
 --- Wire to defines.events.on_player_cursor_stack_changed.
-function Highlight.on_cursor_stack_changed(player)
+function Highlight.on_cursor_stack_changed(player_index)
+  local player = game.get_player(player_index)
+  if not (player and player.valid) then
+    return
+  end
   if is_holding_radar(player) then
     draw_player_highlight(player)
   else

@@ -11,6 +11,12 @@ end
 local TILE_PIXELS = 32
 Grid.CHUNK_TILES = 32
 
+-- Unconditional safety bound on the half-extent visible_chunk_range reports.
+-- No normal-view zoom comes near it; the cap keeps draw_player_highlight's
+-- work bounded if player.zoom goes small anyway -- chart view, or a mod that
+-- raises the zoom-out limit.
+local MAX_HALF_EXTENT_TILES = 64 * Grid.CHUNK_TILES
+
 --- The inclusive chunk-coordinate bounding box currently on screen for a
 --- player at `position` (MapPosition, in tiles) with the given
 --- `display_resolution` (in pixels) and `zoom` (1 = 100%).
@@ -19,6 +25,8 @@ function Grid.visible_chunk_range(position, display_resolution, zoom)
   local tiles_tall = display_resolution.height / (TILE_PIXELS * zoom)
   local half_wide = tiles_wide / 2
   local half_tall = tiles_tall / 2
+  half_wide = math.min(half_wide, MAX_HALF_EXTENT_TILES)
+  half_tall = math.min(half_tall, MAX_HALF_EXTENT_TILES)
   return {
     left = math.floor((position.x - half_wide) / Grid.CHUNK_TILES),
     right = math.floor((position.x + half_wide) / Grid.CHUNK_TILES),
