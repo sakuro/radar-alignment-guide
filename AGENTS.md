@@ -27,11 +27,6 @@ Root-level Lua files are limited to the Factorio stage entry points (`settings.l
 
 Releases are handled by GitHub Actions workflows. Do not run `mise run release:*` tasks manually.
 
-After a release is published, the Release Publish workflow pushes a fresh
-`Version: Unreleased` changelog section straight to `main`. This bypasses the
-branch protection because `github-actions[bot]` is on the `main` branch
-ruleset's bypass list; keep that entry in place.
-
 Changelog is managed by `factorix mod changelog` and follows Factorio's changelog.txt specification.
 
 ### What to write in changelog.txt
@@ -41,7 +36,9 @@ Changelog is managed by `factorix mod changelog` and follows Factorio's changelo
 
 ### Updating the changelog during development
 
-Write entries in the Unreleased section at the top of the file. If no Unreleased section exists, create one.
+Write entries in the Unreleased section at the top of the file. If no Unreleased
+section exists, create one — the release workflow does not add one back after a
+release, so between releases the top section is the last released version.
 
 Do not create a section for the next release version directly — version bumping is handled by the GitHub Actions release workflow.
 
