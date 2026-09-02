@@ -22,6 +22,7 @@ function factorio.reset()
   factorio.printed = {}
   factorio.registered = {}
   factorio._players = {}
+  factorio.flying_text = {}
   factorio.show_map_tag = false
 end
 
@@ -56,6 +57,11 @@ function factorio.radar(opts)
     unit_number = opts.unit_number or 1,
     name = opts.name or "radar",
     quality = { name = opts.quality or "normal" },
+    prototype = {
+      get_max_distance_of_nearby_sector_revealed = function()
+        return opts.range or 3
+      end,
+    },
     position = opts.position or { x = 0, y = 0 },
     surface = { index = opts.surface_index or 1 },
     force = factorio.force({ index = opts.force_index or 1 }),
@@ -70,6 +76,9 @@ function factorio.player(opts)
     index = opts.index or 1,
     valid = opts.valid ~= false,
     selected = opts.selected,
+    create_local_flying_text = function(params)
+      table.insert(factorio.flying_text, params)
+    end,
   }
   factorio._players[player.index] = player
   return player

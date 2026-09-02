@@ -224,9 +224,11 @@ function Anchor.on_forces_merged(source_index, destination_index)
 end
 
 --- Call when a radar entity is built. Auto-designates it as the anchor if its
---- force/surface has none yet; otherwise warns the building player (if any) if
---- its prototype or quality differs from the current anchor's (both affect the
---- actual coverage radius, and therefore the correct grid spacing).
+--- force/surface has none yet; otherwise, when a building player is present
+--- and the new radar covers more area than the anchor, shows them a flying
+--- text. A narrower radar leaves a gap that is already visible on the grid,
+--- and re-anchoring to it would only tighten the grid, so that case is left
+--- unwarned.
 function Anchor.on_built(radar, player)
   local current = Anchor.get(radar.force.index, radar.surface.index)
   if not current then
@@ -234,14 +236,14 @@ function Anchor.on_built(radar, player)
     radar.force.print({"radar-alignment-guide.anchor-auto-set-message", radar.gps_tag})
     return
   end
-  local type_mismatched = current.name ~= radar.name
-  local quality_mismatched = current.quality.name ~= radar.quality.name
-  if (type_mismatched or quality_mismatched) and player and player.valid then
-    local message_key = type_mismatched
-      and "radar-alignment-guide.anchor-type-mismatch-flying-text"
-      or "radar-alignment-guide.anchor-quality-mismatch-flying-text"
+  if not (player and player.valid) then
+    return
+  end
+  local anchor_range = current.prototype.get_max_distance_of_nearby_sector_revealed(current.quality)
+  local new_range = radar.prototype.get_max_distance_of_nearby_sector_revealed(radar.quality)
+  if new_range > anchor_range then
     player.create_local_flying_text({
-      text = {message_key},
+      text = {"radar-alignment-guide.anchor-outranges-flying-text"},
       position = radar.position,
     })
   end

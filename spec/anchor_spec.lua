@@ -55,6 +55,36 @@ describe("Anchor", function()
       assert.same({ "radar-alignment-guide.anchor-auto-set-message", radar.gps_tag }, factorio.printed[1])
       assert.equals(1, #factorio.printed)
     end)
+
+    it("warns the builder when the new radar out-ranges the anchor", function()
+      Anchor.set(factorio.radar({ unit_number = 1, range = 3 }))
+      local player = factorio.player({ index = 1 })
+
+      Anchor.on_built(factorio.radar({ unit_number = 2, range = 5 }), player)
+
+      assert.same({ "radar-alignment-guide.anchor-outranges-flying-text" }, factorio.flying_text[1].text)
+      assert.equals(1, #factorio.flying_text)
+    end)
+
+    it("does not warn when the new radar's range is equal or smaller", function()
+      Anchor.set(factorio.radar({ unit_number = 1, range = 5 }))
+      local player = factorio.player({ index = 1 })
+
+      Anchor.on_built(factorio.radar({ unit_number = 2, range = 5 }), player)
+      Anchor.on_built(factorio.radar({ unit_number = 3, range = 3 }), player)
+
+      assert.same({}, factorio.flying_text)
+    end)
+
+    it("does not warn when there is no building player", function()
+      Anchor.set(factorio.radar({ unit_number = 1, range = 3 }))
+
+      assert.has_no.errors(function()
+        Anchor.on_built(factorio.radar({ unit_number = 2, range = 5 }), nil)
+      end)
+
+      assert.same({}, factorio.flying_text)
+    end)
   end)
 
   describe("on_object_destroyed", function()
