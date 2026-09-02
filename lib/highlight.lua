@@ -161,6 +161,14 @@ function Highlight.on_player_removed(player_index)
   stop_highlight(player_index)
 end
 
+--- Wire to defines.events.on_player_left_game. A disconnected player is never
+--- visited by Highlight.on_tick, so their per-player entries and any leftover
+--- highlight rectangles would linger until they rejoin. Same cleanup as
+--- Highlight.on_player_removed.
+function Highlight.on_player_left_game(player_index)
+  stop_highlight(player_index)
+end
+
 --- Wire to defines.events.on_tick. Keeps the highlight following the
 --- player's position (not the actual camera/view position, which Factorio's
 --- API doesn't expose) for every player currently holding a radar item or

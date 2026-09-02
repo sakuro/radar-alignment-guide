@@ -78,4 +78,8 @@ script.on_event(defines.events.on_player_removed, function(event)
   Highlight.on_player_removed(event.player_index)
 end)
 
+script.on_event(defines.events.on_player_left_game, function(event)
+  Highlight.on_player_left_game(event.player_index)
+end)
+
 script.on_event(defines.events.on_tick, Highlight.on_tick)
