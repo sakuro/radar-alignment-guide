@@ -132,5 +132,41 @@ describe("Anchor", function()
       assert.equals(dest_radar, storage.anchors[2][1].radar)
       assert.is_nil(storage.anchors[3])
     end)
+
+    it("tells the destination force a merged anchor was set", function()
+      local radar = factorio.radar({ unit_number = 10, force_index = 1 })
+      radar.gps_tag = "SRC"
+      Anchor.set(radar, true)
+      radar.force = factorio.force({ index = 2 })
+
+      Anchor.on_forces_merged(1, 2)
+
+      assert.same({ "radar-alignment-guide.anchor-merged-moved-message", "SRC" }, factorio.printed[1])
+    end)
+
+    it("tells the destination force a duplicate was discarded, naming the kept anchor", function()
+      local source_radar = factorio.radar({ unit_number = 10, force_index = 1 })
+      source_radar.gps_tag = "SRC"
+      local dest_radar = factorio.radar({ unit_number = 20, force_index = 2 })
+      dest_radar.gps_tag = "DST"
+      Anchor.set(source_radar, true)
+      Anchor.set(dest_radar, true)
+      source_radar.force = factorio.force({ index = 2 })
+
+      Anchor.on_forces_merged(1, 2)
+
+      assert.same(
+        { "radar-alignment-guide.anchor-merged-dropped-message", "SRC", "DST" },
+        factorio.printed[1]
+      )
+    end)
+
+    it("prints nothing when the source force has no anchors", function()
+      Anchor.set(factorio.radar({ unit_number = 20, force_index = 2 }), true)
+
+      Anchor.on_forces_merged(3, 2)
+
+      assert.same({}, factorio.printed)
+    end)
   end)
 end)

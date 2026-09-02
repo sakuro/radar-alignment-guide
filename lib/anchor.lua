@@ -172,7 +172,9 @@ end
 --- source record to the destination scope, per surface. Where the destination
 --- already has an anchor on that surface it wins and the source record is
 --- dropped. A moved record's marker and chart tag are rebuilt, since the
---- originals reference the now-invalid source force.
+--- originals reference the now-invalid source force. The destination force is
+--- told about each surface that changed -- an anchor being set, or a duplicate
+--- being discarded (naming the anchor that stays).
 function Anchor.on_forces_merged(source_index, destination_index)
   ensure_storage()
   local moving = storage.anchors[source_index]
@@ -180,16 +182,32 @@ function Anchor.on_forces_merged(source_index, destination_index)
     return
   end
   storage.anchors[source_index] = nil
+  local destination_force = game.forces[destination_index]
+  local force_valid = destination_force and destination_force.valid
   for surface_index, record in pairs(moving) do
     destroy_marker(record)
     destroy_chart_tag(record)
+    local record_gps = record.radar and record.radar.valid and record.radar.gps_tag
     local destination = storage.anchors[destination_index]
-    if not (destination and destination[surface_index]) then
+    local kept = destination and destination[surface_index]
+    if kept then
+      local kept_gps = kept.radar and kept.radar.valid and kept.radar.gps_tag
+      if force_valid and record_gps and kept_gps then
+        destination_force.print(
+          {"radar-alignment-guide.anchor-merged-dropped-message", record_gps, kept_gps}
+        )
+      end
+    else
       storage.anchors[destination_index] = storage.anchors[destination_index] or {}
       storage.anchors[destination_index][surface_index] = record
       if record.radar and record.radar.valid then
         create_marker(record, record.radar)
         create_chart_tag(record, record.radar)
+      end
+      if force_valid and record_gps then
+        destination_force.print(
+          {"radar-alignment-guide.anchor-merged-moved-message", record_gps}
+        )
       end
     end
   end
