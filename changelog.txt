@@ -3,7 +3,7 @@ Version: Unreleased
   Bugfixes:
     - The alignment grid now refreshes right away when the anchor is set, cleared, or replaced while you stand still, instead of only after you move.
     - Fixed the missing-anchor warning sometimes not showing again after re-equipping a radar.
-    - Anchor designations are no longer lost when two forces are merged.
+    - Anchors now carry over to the destination force when two forces are merged.
 ---------------------------------------------------------------------------------------------------
 Version: 0.5.0
 Date: 2026-09-02

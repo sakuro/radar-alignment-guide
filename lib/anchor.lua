@@ -174,6 +174,7 @@ end
 --- dropped. A moved record's marker and chart tag are rebuilt, since the
 --- originals reference the now-invalid source force.
 function Anchor.on_forces_merged(source_index, destination_index)
+  ensure_storage()
   local moving = storage.anchors[source_index]
   if not moving then
     return
