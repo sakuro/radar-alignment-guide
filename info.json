@@ -3,7 +3,7 @@
   "version": "0.5.0",
   "title": "Radar Alignment Guide",
   "author": "sakuro",
-  "description": "Radar Alignment Guide",
+  "description": "Highlights chunks for placing radars without overlapping coverage.",
   "factorio_version": "2.1",
   "dependencies": [
     "base >= 2.1"
