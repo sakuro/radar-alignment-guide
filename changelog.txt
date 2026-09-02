@@ -1,5 +1,7 @@
 ---------------------------------------------------------------------------------------------------
 Version: Unreleased
+  Changes:
+    - The build-time radar warning now appears only when the new radar covers more area than the anchor, and it names the key that re-anchors it.
   Bugfixes:
     - The alignment grid now refreshes right away when the anchor is set, cleared, or replaced while you stand still, instead of only after you move.
     - Fixed the missing-anchor warning sometimes not showing again after re-equipping a radar.
