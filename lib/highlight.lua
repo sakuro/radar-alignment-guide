@@ -58,14 +58,29 @@ local function clear_player_highlight(player_index)
   storage.highlight_renders[player_index] = nil
 end
 
---- The player's current surface and visible chunk range. Two states with
---- the same range produce the same set of highlighted chunks, even if the
---- underlying position/zoom differ slightly, so callers compare ranges
---- (not raw position/zoom) to decide whether a redraw is needed.
+--- Stop highlighting for a player: destroy their rectangles and drop every
+--- per-player cache entry, so the next radar pickup starts from a clean
+--- slate -- in particular, the no-anchor warning can fire again.
+local function stop_highlight(player_index)
+  clear_player_highlight(player_index)
+  storage.highlight_last_state[player_index] = nil
+  storage.warned_players[player_index] = nil
+end
+
+--- The inputs that decide which chunks get highlighted for a player: the
+--- surface, the visible chunk range, and the current anchor. Two states
+--- that compare equal produce the same rectangles, even if the underlying
+--- position/zoom differ slightly, so callers compare these (not raw
+--- position/zoom) to decide whether a redraw is needed. The anchor is keyed
+--- by unit_number (or false when absent); since radars never move and
+--- unit_numbers are never reused, that alone catches an anchor appearing,
+--- being cleared, or being replaced while the player holds still.
 local function current_highlight_state(player)
+  local anchor = Anchor.get(player.force.index, player.surface.index)
   return {
     surface_index = player.surface.index,
     range = Grid.visible_chunk_range(player.position, player.display_resolution, player.zoom),
+    anchor_key = anchor and anchor.unit_number or false,
   }
 end
 
@@ -75,6 +90,7 @@ local function highlight_state_changed(a, b)
   end
   local ar, br = a.range, b.range
   return a.surface_index ~= b.surface_index
+    or a.anchor_key ~= b.anchor_key
     or ar.left ~= br.left
     or ar.right ~= br.right
     or ar.top ~= br.top
@@ -132,8 +148,7 @@ function Highlight.on_cursor_stack_changed(player)
   if is_holding_radar(player) then
     draw_player_highlight(player)
   else
-    storage.warned_players[player.index] = nil
-    clear_player_highlight(player.index)
+    stop_highlight(player.index)
   end
 end
 
@@ -142,17 +157,13 @@ end
 --- API doesn't expose) for every player currently holding a radar item or
 --- radar ghost. Scans all connected players (not just ones already
 --- highlighting) since on_player_cursor_stack_changed is not guaranteed to
---- fire for every cursor_ghost change. Skips the redraw when the visible
---- chunk range (surface + range, not raw position/zoom) hasn't changed
---- since the last draw, since destroying and recreating every visible
---- rectangle every tick regardless of sub-chunk movement is wasted render
---- churn. This also applies to the no-anchor case (draw_player_highlight
---- caches that state too): a stationary player holding a radar item on a
---- surface with no anchor is skipped on repeat ticks, at the cost of not
---- noticing an anchor becoming available until this player's cached state
---- changes (they move, re-pick the item, or the highlight is otherwise
---- redrawn) — an acceptable tradeoff since the same staleness already
---- applies to an anchor being replaced while this player stays still.
+--- fire for every cursor_ghost change. Skips the redraw when nothing that
+--- affects the output has changed since the last draw -- surface, visible
+--- chunk range, and current anchor (see current_highlight_state) -- since
+--- destroying and recreating every visible rectangle every tick regardless
+--- of sub-chunk movement is wasted render churn. Because the anchor is part
+--- of that state, an anchor appearing, being cleared, or being replaced
+--- redraws even a stationary player's grid on the next tick.
 function Highlight.on_tick()
   for _, player in pairs(game.connected_players) do
     if player.valid and is_holding_radar(player) then
@@ -161,8 +172,7 @@ function Highlight.on_tick()
         draw_player_highlight(player, state)
       end
     else
-      storage.highlight_last_state[player.index] = nil
-      clear_player_highlight(player.index)
+      stop_highlight(player.index)
     end
   end
 end
