@@ -36,7 +36,9 @@ Changelog is managed by `factorix mod changelog` and follows Factorio's changelo
 
 ### Updating the changelog during development
 
-Write entries in the Unreleased section at the top of the file. If no Unreleased section exists, create one.
+Write entries in the Unreleased section at the top of the file. If no Unreleased
+section exists, create one — the release workflow does not add one back after a
+release, so between releases the top section is the last released version.
 
 Do not create a section for the next release version directly — version bumping is handled by the GitHub Actions release workflow.
 
