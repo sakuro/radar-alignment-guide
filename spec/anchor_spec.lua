@@ -10,7 +10,7 @@ describe("Anchor", function()
   describe("set / replace / clear", function()
     it("stores one record per scope and leaves nothing behind after clear", function()
       local first = factorio.radar({ unit_number = 10 })
-      Anchor.set(first, true)
+      Anchor.set(first)
 
       local record = storage.anchors[1][1]
       assert.equals(first, record.radar)
@@ -18,7 +18,7 @@ describe("Anchor", function()
       assert.is_number(record.marker_render_id)
 
       local second = factorio.radar({ unit_number = 20 })
-      Anchor.set(second, true)
+      Anchor.set(second)
 
       assert.equals(second, storage.anchors[1][1].radar)
       assert.equals(20, storage.anchors[1][1].useful_id)
@@ -34,7 +34,7 @@ describe("Anchor", function()
 
     it("reaps a record whose radar went invalid and destroys its marker", function()
       local radar = factorio.radar({ unit_number = 10 })
-      Anchor.set(radar, true)
+      Anchor.set(radar)
       local render_id = storage.anchors[1][1].marker_render_id
       radar.valid = false
 
@@ -57,7 +57,7 @@ describe("Anchor", function()
 
   describe("on_object_destroyed", function()
     it("clears the scope whose record matches the useful_id", function()
-      Anchor.set(factorio.radar({ unit_number = 10 }), true)
+      Anchor.set(factorio.radar({ unit_number = 10 }))
 
       Anchor.on_object_destroyed({ useful_id = 10 })
 
@@ -65,8 +65,8 @@ describe("Anchor", function()
     end)
 
     it("ignores a useful_id no record holds (stale late event)", function()
-      Anchor.set(factorio.radar({ unit_number = 10 }), true)
-      Anchor.set(factorio.radar({ unit_number = 20 }), true) -- replaces scope 1,1
+      Anchor.set(factorio.radar({ unit_number = 10 }))
+      Anchor.set(factorio.radar({ unit_number = 20 })) -- replaces scope 1,1
 
       Anchor.on_object_destroyed({ useful_id = 10 })
 
@@ -79,7 +79,7 @@ describe("Anchor", function()
     it("moves a source anchor into an empty destination scope and rebuilds its visuals", function()
       factorio.show_map_tag = true
       local radar = factorio.radar({ unit_number = 10, force_index = 1 })
-      Anchor.set(radar, true)
+      Anchor.set(radar)
       local old_marker_id = storage.anchors[1][1].marker_render_id
 
       radar.force = factorio.force({ index = 2 })
@@ -97,8 +97,8 @@ describe("Anchor", function()
     it("keeps the destination's anchor when both forces have one on the same surface", function()
       local source_radar = factorio.radar({ unit_number = 10, force_index = 1 })
       local dest_radar = factorio.radar({ unit_number = 20, force_index = 2 })
-      Anchor.set(source_radar, true)
-      Anchor.set(dest_radar, true)
+      Anchor.set(source_radar)
+      Anchor.set(dest_radar)
       local source_marker_id = storage.anchors[1][1].marker_render_id
 
       source_radar.force = factorio.force({ index = 2 })
@@ -112,8 +112,8 @@ describe("Anchor", function()
     it("merges per surface", function()
       local surface1_radar = factorio.radar({ unit_number = 10, force_index = 1, surface_index = 1 })
       local surface2_radar = factorio.radar({ unit_number = 20, force_index = 2, surface_index = 2 })
-      Anchor.set(surface1_radar, true)
-      Anchor.set(surface2_radar, true)
+      Anchor.set(surface1_radar)
+      Anchor.set(surface2_radar)
 
       surface1_radar.force = factorio.force({ index = 2 })
       Anchor.on_forces_merged(1, 2)
@@ -125,7 +125,7 @@ describe("Anchor", function()
 
     it("is a no-op when the source force has no anchors", function()
       local dest_radar = factorio.radar({ unit_number = 20, force_index = 2 })
-      Anchor.set(dest_radar, true)
+      Anchor.set(dest_radar)
 
       Anchor.on_forces_merged(3, 2)
 
@@ -136,8 +136,9 @@ describe("Anchor", function()
     it("tells the destination force a merged anchor was set", function()
       local radar = factorio.radar({ unit_number = 10, force_index = 1 })
       radar.gps_tag = "SRC"
-      Anchor.set(radar, true)
+      Anchor.set(radar)
       radar.force = factorio.force({ index = 2 })
+      factorio.printed = {}
 
       Anchor.on_forces_merged(1, 2)
 
@@ -149,9 +150,10 @@ describe("Anchor", function()
       source_radar.gps_tag = "SRC"
       local dest_radar = factorio.radar({ unit_number = 20, force_index = 2 })
       dest_radar.gps_tag = "DST"
-      Anchor.set(source_radar, true)
-      Anchor.set(dest_radar, true)
+      Anchor.set(source_radar)
+      Anchor.set(dest_radar)
       source_radar.force = factorio.force({ index = 2 })
+      factorio.printed = {}
 
       Anchor.on_forces_merged(1, 2)
 
@@ -162,11 +164,63 @@ describe("Anchor", function()
     end)
 
     it("prints nothing when the source force has no anchors", function()
-      Anchor.set(factorio.radar({ unit_number = 20, force_index = 2 }), true)
+      Anchor.set(factorio.radar({ unit_number = 20, force_index = 2 }))
+      factorio.printed = {}
 
       Anchor.on_forces_merged(3, 2)
 
       assert.same({}, factorio.printed)
+    end)
+  end)
+
+  describe("on_toggle", function()
+    it("does nothing when the player is not pointing at a radar", function()
+      factorio.player({ index = 1, selected = nil })
+
+      Anchor.on_toggle(1)
+
+      assert.is_nil(storage.anchors[1])
+    end)
+
+    it("designates the radar the player points at when it is not the anchor", function()
+      local radar = factorio.radar({ unit_number = 10 })
+      factorio.player({ index = 1, selected = radar })
+
+      Anchor.on_toggle(1)
+
+      assert.equals(radar, storage.anchors[1][1].radar)
+    end)
+
+    it("clears the anchor when the player points at the current anchor radar", function()
+      local radar = factorio.radar({ unit_number = 10 })
+      Anchor.set(radar)
+      factorio.player({ index = 1, selected = radar })
+      factorio.printed = {}
+
+      Anchor.on_toggle(1)
+
+      assert.is_nil(storage.anchors[1][1])
+      assert.same({ "radar-alignment-guide.anchor-cleared-message" }, factorio.printed[1])
+    end)
+  end)
+
+  describe("on_setting_changed", function()
+    it("refreshes chart tags when the map-tag setting changed", function()
+      Anchor.set(factorio.radar({ unit_number = 10 }))
+      factorio.show_map_tag = true
+
+      Anchor.on_setting_changed("radar-alignment-guide-show-map-tag")
+
+      assert.is_not_nil(storage.anchors[1][1].chart_tag)
+    end)
+
+    it("ignores other settings", function()
+      Anchor.set(factorio.radar({ unit_number = 10 }))
+      factorio.show_map_tag = true
+
+      Anchor.on_setting_changed("some-other-setting")
+
+      assert.is_nil(storage.anchors[1][1].chart_tag)
     end)
   end)
 end)

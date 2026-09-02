@@ -4,6 +4,8 @@ local function ensure_storage()
   storage.anchors = storage.anchors or {}
 end
 
+local MAP_TAG_SETTING = "radar-alignment-guide-show-map-tag"
+
 function Anchor.init()
   ensure_storage()
 end
@@ -65,12 +67,14 @@ local function destroy_chart_tag(record)
 end
 
 local function create_chart_tag(record, radar)
-  if not settings.global["radar-alignment-guide-show-map-tag"].value then
+  if not settings.global[MAP_TAG_SETTING].value then
     return
   end
   local tag = radar.force.add_chart_tag(radar.surface, {
     position = radar.position,
     icon = {type = "entity", name = radar.name},
+    -- add_chart_tag's `text` is a plain string, not a LocalisedString, so this
+    -- one label cannot be localized.
     text = "Radar Alignment Guide Anchor",
   })
   if tag then
@@ -115,17 +119,15 @@ function Anchor.refresh_all_chart_tags()
   end
 end
 
---- Designate `radar` as the anchor for its force/surface, replacing any
---- existing anchor there. No-op if `radar` is already the anchor. Pass
---- `silent = true` to skip the force-print (used by Anchor.on_built, which
---- shows its own auto-designation message instead).
-function Anchor.set(radar, silent)
-  ensure_storage()
+--- Register `radar` as the anchor record for its force/surface, replacing any
+--- existing one. Returns false (and does nothing) when `radar` is already the
+--- anchor there. Callers run only after on_init, so storage.anchors exists.
+local function designate(radar)
   local force_index = radar.force.index
   local surface_index = radar.surface.index
   local current = Anchor.get(force_index, surface_index)
   if current and current.unit_number == radar.unit_number then
-    return
+    return false
   end
   -- Unconditional: drops a replaced anchor and also reaps a record whose radar
   -- went invalid without an on_object_destroyed (no-op when there is no record).
@@ -136,7 +138,13 @@ function Anchor.set(radar, silent)
   storage.anchors[force_index][surface_index] = record
   create_marker(record, radar)
   create_chart_tag(record, radar)
-  if not silent then
+  return true
+end
+
+--- Designate `radar` as the anchor for its force/surface, announcing it to the
+--- force. No-op if `radar` is already the anchor.
+function Anchor.set(radar)
+  if designate(radar) then
     radar.force.print({"radar-alignment-guide.anchor-set-message", radar.gps_tag})
   end
 end
@@ -176,6 +184,8 @@ end
 --- told about each surface that changed -- an anchor being set, or a duplicate
 --- being discarded (naming the anchor that stays).
 function Anchor.on_forces_merged(source_index, destination_index)
+  -- Guarded: another mod merging forces from its own on_init can raise this
+  -- before our on_init has created storage.anchors.
   ensure_storage()
   local moving = storage.anchors[source_index]
   if not moving then
@@ -220,7 +230,7 @@ end
 function Anchor.on_built(radar, player)
   local current = Anchor.get(radar.force.index, radar.surface.index)
   if not current then
-    Anchor.set(radar, true)
+    designate(radar)
     radar.force.print({"radar-alignment-guide.anchor-auto-set-message", radar.gps_tag})
     return
   end
@@ -234,6 +244,29 @@ function Anchor.on_built(radar, player)
       text = {message_key},
       position = radar.position,
     })
+  end
+end
+
+--- Wire to the "radar-alignment-guide-toggle-anchor" custom input. Toggles the
+--- anchor designation of the radar the player is pointing at.
+function Anchor.on_toggle(player_index)
+  local player = game.get_player(player_index)
+  if not (player and player.selected and player.selected.type == "radar") then
+    return
+  end
+  local radar = player.selected
+  if Anchor.is_anchor(radar) then
+    Anchor.clear(radar.force.index, radar.surface.index)
+    radar.force.print({"radar-alignment-guide.anchor-cleared-message"})
+  else
+    Anchor.set(radar)
+  end
+end
+
+--- Wire to defines.events.on_runtime_mod_setting_changed.
+function Anchor.on_setting_changed(setting_name)
+  if setting_name == MAP_TAG_SETTING then
+    Anchor.refresh_all_chart_tags()
   end
 end
 

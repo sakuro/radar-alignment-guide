@@ -21,6 +21,7 @@ function factorio.reset()
   render_objects = {}
   factorio.printed = {}
   factorio.registered = {}
+  factorio._players = {}
   factorio.show_map_tag = false
 end
 
@@ -51,6 +52,7 @@ function factorio.radar(opts)
   opts = opts or {}
   return {
     valid = true,
+    type = opts.type or "radar",
     unit_number = opts.unit_number or 1,
     name = opts.name or "radar",
     quality = { name = opts.quality or "normal" },
@@ -59,6 +61,18 @@ function factorio.radar(opts)
     force = factorio.force({ index = opts.force_index or 1 }),
     gps_tag = "[gps=0,0]",
   }
+end
+
+--- Build a fake player and register it for game.get_player.
+function factorio.player(opts)
+  opts = opts or {}
+  local player = {
+    index = opts.index or 1,
+    valid = opts.valid ~= false,
+    selected = opts.selected,
+  }
+  factorio._players[player.index] = player
+  return player
 end
 
 _G.log = function() end
@@ -95,6 +109,9 @@ _G.settings = {
 }
 
 _G.game = {
+  get_player = function(index)
+    return factorio._players[index]
+  end,
   forces = setmetatable({}, {
     __index = function(_, index)
       return {
