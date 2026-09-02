@@ -14,5 +14,25 @@
       "matchDepNames": ["lua"],
       "enabled": false
     }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/\\.pkl$/"],
+      "matchStrings": [
+        "package://github.com/jdx/hk/releases/download/v(?<currentValue>[^/]+)/hk@[^#\"]+"
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "jdx/hk"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/\\.pkl$/"],
+      "matchStrings": [
+        "package://github.com/sakuro/git-hooks/releases/download/v(?<currentValue>[^/]+)/git-hooks@[^#\"]+"
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "sakuro/git-hooks"
+    }
   ]
 }
