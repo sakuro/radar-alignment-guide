@@ -31,6 +31,28 @@ describe("Anchor", function()
       assert.is_nil(storage.anchor_markers)
       assert.is_nil(storage.anchor_chart_tags)
     end)
+
+    it("reaps a record whose radar went invalid and destroys its marker", function()
+      local radar = factorio.radar({ unit_number = 10 })
+      Anchor.set(radar, true)
+      local render_id = storage.anchors[1][1].marker_render_id
+      radar.valid = false
+
+      Anchor.clear(1, 1)
+
+      assert.is_nil(storage.anchors[1][1])
+      assert.is_false(rendering.get_object_by_id(render_id).valid)
+    end)
+  end)
+
+  describe("on_built", function()
+    it("auto-designates the first radar built on a scope", function()
+      local radar = factorio.radar({ unit_number = 5 })
+
+      Anchor.on_built(radar, nil)
+
+      assert.equals(radar, storage.anchors[1][1].radar)
+    end)
   end)
 
   describe("on_object_destroyed", function()

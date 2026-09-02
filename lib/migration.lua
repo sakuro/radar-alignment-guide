@@ -37,9 +37,13 @@ function Migration.apply(store, steps)
       store[key] = nil
     end
     store.migration_reset = true
+    store.schema_version = Migration.LATEST
+    return false
   end
-  store.schema_version = Migration.LATEST
-  return ok
+  -- Never stamp downward: a mod downgrade must not mask that the store still
+  -- holds a newer shape than this version understands.
+  store.schema_version = math.max(store.schema_version or 1, Migration.LATEST)
+  return true
 end
 
 return Migration

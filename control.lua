@@ -10,6 +10,9 @@ end
 
 script.on_init(function()
   Migration.apply(storage, migrations)
+  -- A fresh game has nothing to report; drop any flag a no-op step set so a
+  -- later unrelated on_configuration_changed does not surface a stale notice.
+  storage.migration_reset = nil
   init()
 end)
 

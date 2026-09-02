@@ -18,8 +18,8 @@ function Highlight.init()
   -- from an older version would otherwise crash the comparison in
   -- Highlight.on_tick on the very next tick. Losing the cache just costs
   -- one extra harmless redraw for players currently holding a radar item.
-  -- Future storage-shape changes go through the schema_version migration
-  -- mechanism (lib/migration.lua) rather than an unconditional reset.
+  -- This cache keeps its unconditional wipe; other storage-shape changes go
+  -- through the schema_version migration mechanism (lib/migration.lua).
   storage.highlight_last_state = {}
 end
 

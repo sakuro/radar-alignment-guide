@@ -65,4 +65,16 @@ describe("Migration.apply", function()
     assert.is_true(store.migration_reset)
     assert.equals(Migration.LATEST, store.schema_version)
   end)
+
+  it("has a step function for every version from 2 up to LATEST", function()
+    for version = 2, Migration.LATEST do
+      assert.is_function(migrations[version])
+    end
+  end)
+
+  it("does not lower a schema_version already ahead of LATEST", function()
+    local store = { schema_version = 99 }
+    Migration.apply(store, migrations)
+    assert.equals(99, store.schema_version)
+  end)
 end)
