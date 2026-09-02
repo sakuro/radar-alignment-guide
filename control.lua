@@ -1,13 +1,29 @@
 local Anchor = require("lib.anchor")
 local Highlight = require("lib.highlight")
+local Migration = require("lib.migration")
+local migrations = require("lib.migrations")
 
 local function init()
   Anchor.init()
   Highlight.init()
 end
 
-script.on_init(init)
-script.on_configuration_changed(init)
+script.on_init(function()
+  Migration.apply(storage, migrations)
+  -- A fresh game has nothing to report; drop any flag a no-op step set so a
+  -- later unrelated on_configuration_changed does not surface a stale notice.
+  storage.migration_reset = nil
+  init()
+end)
+
+script.on_configuration_changed(function()
+  Migration.apply(storage, migrations)
+  init()
+  if storage.migration_reset then
+    storage.migration_reset = nil
+    game.print({"radar-alignment-guide.migration-reset-message"})
+  end
+end)
 
 script.on_event("radar-alignment-guide-toggle-anchor", function(event)
   local player = game.get_player(event.player_index)
