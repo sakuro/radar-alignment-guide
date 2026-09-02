@@ -11,10 +11,10 @@ end
 local TILE_PIXELS = 32
 Grid.CHUNK_TILES = 32
 
--- Safety bound on the half-extent visible_chunk_range reports. Normal view's
--- zoom floor keeps the real range far below this; the cap matters for the
--- map / remote view, where zoom can go much lower and would otherwise make
--- draw_player_highlight loop over tens of thousands of chunks.
+-- Unconditional safety bound on the half-extent visible_chunk_range reports.
+-- No normal-view zoom comes near it; the cap keeps draw_player_highlight's
+-- work bounded if player.zoom goes small anyway -- chart view, or a mod that
+-- raises the zoom-out limit.
 local MAX_HALF_EXTENT_TILES = 64 * Grid.CHUNK_TILES
 
 --- The inclusive chunk-coordinate bounding box currently on screen for a
