@@ -13,6 +13,10 @@
       "matchManagers": ["mise"],
       "matchDepNames": ["lua"],
       "enabled": false
+    },
+    {
+      "matchDepNames": ["hk", "jdx/hk"],
+      "groupName": "hk"
     }
   ],
   "customManagers": [
