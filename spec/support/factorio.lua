@@ -24,11 +24,11 @@ function factorio.reset()
   factorio.show_map_tag = false
 end
 
---- Build a fake radar entity usable with lib/anchor.lua.
-function factorio.radar(opts)
+--- Build a fake force table.
+function factorio.force(opts)
   opts = opts or {}
-  local force = {
-    index = opts.force_index or 1,
+  return {
+    index = opts.index or 1,
     valid = true,
     print = function(message)
       table.insert(factorio.printed, message)
@@ -44,6 +44,11 @@ function factorio.radar(opts)
       return tag
     end,
   }
+end
+
+--- Build a fake radar entity usable with lib/anchor.lua.
+function factorio.radar(opts)
+  opts = opts or {}
   return {
     valid = true,
     unit_number = opts.unit_number or 1,
@@ -51,7 +56,7 @@ function factorio.radar(opts)
     quality = { name = opts.quality or "normal" },
     position = opts.position or { x = 0, y = 0 },
     surface = { index = opts.surface_index or 1 },
-    force = force,
+    force = factorio.force({ index = opts.force_index or 1 }),
     gps_tag = "[gps=0,0]",
   }
 end

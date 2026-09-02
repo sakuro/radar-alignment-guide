@@ -154,6 +154,13 @@ function Highlight.on_cursor_stack_changed(player)
   end
 end
 
+--- Wire to defines.events.on_player_removed. Highlight.on_tick only visits
+--- connected players, so a fully-removed player's per-player entries and any
+--- leftover highlight rectangles would never be cleared otherwise.
+function Highlight.on_player_removed(player_index)
+  stop_highlight(player_index)
+end
+
 --- Wire to defines.events.on_tick. Keeps the highlight following the
 --- player's position (not the actual camera/view position, which Factorio's
 --- API doesn't expose) for every player currently holding a radar item or

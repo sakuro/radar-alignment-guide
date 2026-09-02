@@ -57,6 +57,10 @@ script.on_event(defines.events.script_raised_revive, on_built, radar_filter)
 
 script.on_event(defines.events.on_object_destroyed, Anchor.on_object_destroyed)
 
+script.on_event(defines.events.on_forces_merged, function(event)
+  Anchor.on_forces_merged(event.source_index, event.destination.index)
+end)
+
 script.on_event(defines.events.on_runtime_mod_setting_changed, function(event)
   if event.setting == "radar-alignment-guide-show-map-tag" then
     Anchor.refresh_all_chart_tags()
@@ -68,6 +72,10 @@ script.on_event(defines.events.on_player_cursor_stack_changed, function(event)
   if player and player.valid then
     Highlight.on_cursor_stack_changed(player)
   end
+end)
+
+script.on_event(defines.events.on_player_removed, function(event)
+  Highlight.on_player_removed(event.player_index)
 end)
 
 script.on_event(defines.events.on_tick, Highlight.on_tick)
