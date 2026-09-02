@@ -8,5 +8,5 @@ Helps you place radars without overlapping coverage by highlighting placement ch
 
 - **Anchor designation**: the first radar built on a surface is auto-designated as that force's anchor. Point at any radar and press the toggle-anchor keybind (default `Ctrl+Shift+A`, rebindable in Settings > Controls) to make it the anchor instead, or clear it.
 - **Chunk highlight**: while holding a radar item or ghost, chunks aligned with the anchor's coverage are tinted; the highlight color is configurable per player.
-- **Mismatch warning**: placing a radar of a different type or quality than the current anchor shows a flying-text warning, since both change the coverage radius and thus the correct chunk spacing.
+- **Wider-coverage warning**: placing a radar that covers more area than the current anchor shows a flying-text hint to re-anchor to it, since its extra range is otherwise wasted against the anchor's tighter spacing. A shorter-range radar is not flagged — the gap it leaves is already visible on the grid.
 - **Map tag** (off by default): optionally marks the anchor radar's location on the map and remote view.
