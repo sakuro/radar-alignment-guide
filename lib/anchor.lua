@@ -166,6 +166,34 @@ function Anchor.on_object_destroyed(event)
   end
 end
 
+--- Wire to defines.events.on_forces_merged. The source force is gone and its
+--- entities (anchor radars included) now belong to the destination force, but
+--- storage still keys their records under the old source index. Move each
+--- source record to the destination scope, per surface. Where the destination
+--- already has an anchor on that surface it wins and the source record is
+--- dropped. A moved record's marker and chart tag are rebuilt, since the
+--- originals reference the now-invalid source force.
+function Anchor.on_forces_merged(source_index, destination_index)
+  local moving = storage.anchors[source_index]
+  if not moving then
+    return
+  end
+  storage.anchors[source_index] = nil
+  for surface_index, record in pairs(moving) do
+    destroy_marker(record)
+    destroy_chart_tag(record)
+    local destination = storage.anchors[destination_index]
+    if not (destination and destination[surface_index]) then
+      storage.anchors[destination_index] = storage.anchors[destination_index] or {}
+      storage.anchors[destination_index][surface_index] = record
+      if record.radar and record.radar.valid then
+        create_marker(record, record.radar)
+        create_chart_tag(record, record.radar)
+      end
+    end
+  end
+end
+
 --- Call when a radar entity is built. Auto-designates it as the anchor if its
 --- force/surface has none yet; otherwise warns the building player (if any) if
 --- its prototype or quality differs from the current anchor's (both affect the
