@@ -4,6 +4,7 @@ Version: Unreleased
     - The alignment grid now refreshes right away when the anchor is set, cleared, or replaced while you stand still, instead of only after you move.
     - Fixed the missing-anchor warning sometimes not showing again after re-equipping a radar.
     - Anchors now carry over to the destination force when two forces are merged.
+    - Fixed a lag spike when holding a radar with the map view open and zoomed far out.
 ---------------------------------------------------------------------------------------------------
 Version: 0.5.0
 Date: 2026-09-02

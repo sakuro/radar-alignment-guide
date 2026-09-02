@@ -1,10 +1,10 @@
 local Anchor = {}
 
+local MAP_TAG_SETTING = "radar-alignment-guide-show-map-tag"
+
 local function ensure_storage()
   storage.anchors = storage.anchors or {}
 end
-
-local MAP_TAG_SETTING = "radar-alignment-guide-show-map-tag"
 
 function Anchor.init()
   ensure_storage()

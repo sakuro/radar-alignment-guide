@@ -52,6 +52,8 @@ describe("Anchor", function()
       Anchor.on_built(radar, nil)
 
       assert.equals(radar, storage.anchors[1][1].radar)
+      assert.same({ "radar-alignment-guide.anchor-auto-set-message", radar.gps_tag }, factorio.printed[1])
+      assert.equals(1, #factorio.printed)
     end)
   end)
 
@@ -176,6 +178,14 @@ describe("Anchor", function()
   describe("on_toggle", function()
     it("does nothing when the player is not pointing at a radar", function()
       factorio.player({ index = 1, selected = nil })
+
+      Anchor.on_toggle(1)
+
+      assert.is_nil(storage.anchors[1])
+    end)
+
+    it("does nothing when the player points at a non-radar entity", function()
+      factorio.player({ index = 1, selected = factorio.radar({ type = "assembling-machine" }) })
 
       Anchor.on_toggle(1)
 
