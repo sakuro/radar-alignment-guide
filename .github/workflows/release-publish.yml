@@ -63,22 +63,34 @@ jobs:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: mise run release:github
 
-    - name: Checkout main branch
-      run: git checkout main
-
-    - name: Add Unreleased section to changelog.txt
+    - name: Restore Unreleased section on main
       run: |
+        # Work from the current tip of main, not the release tag that was
+        # checked out above, so this still applies if main advanced while
+        # the release PR was open.
+        git fetch origin main
+        git checkout -B main origin/main
+
+        # Idempotent: the release-preparation step consumed the previous
+        # Unreleased section into the versioned one, so main should have
+        # none right now. Bail out if one is somehow already present.
+        if [ "$(sed -n 2p changelog.txt)" = "Version: Unreleased" ]; then
+          echo "Unreleased section already present; nothing to do"
+          exit 0
+        fi
+
         { printf -- '-%.0s' {1..99}; printf '\nVersion: Unreleased\n'; cat changelog.txt; } > changelog.txt.tmp
         mv changelog.txt.tmp changelog.txt
 
-    - name: Verify changelog.txt format
-      run: factorix mod changelog check
+        factorix mod changelog check
 
-    - name: Commit and push changelog update
-      run: |
         git add changelog.txt
         git commit -m ":memo: Start Unreleased section for next release"
-        git push origin main
+
+        # Direct push to the protected main branch. This works because
+        # github-actions[bot] is on the branch ruleset's bypass list
+        # (repo Settings > Rules); see AGENTS.md "Release".
+        git push origin HEAD:main
 
     - name: Post-release summary
       run: |
