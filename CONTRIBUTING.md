@@ -7,9 +7,9 @@ When opening a pull request:
 
 ## Changelog
 
-The `Unreleased` section is removed on release, so between releases `changelog.txt`
-starts with the last released version. If there is no `Unreleased` section, prepend
-this block:
+On release the `Unreleased` section is replaced by the released version, so
+between releases `changelog.txt` starts with the last released version. If there
+is no `Unreleased` section, prepend this block:
 
 ```
 ---------------------------------------------------------------------------------------------------
