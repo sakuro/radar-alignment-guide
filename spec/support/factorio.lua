@@ -40,6 +40,7 @@ function factorio.reset()
   factorio._radar_prototype_names = { "radar" }
   _G.game.forces = setmetatable({}, forces_metatable)
   _G.game.surfaces = {}
+  _G.game.tick = 1
 end
 
 --- Build a fake force table.
@@ -83,6 +84,18 @@ function factorio.radar(opts)
     force = factorio.force({ index = opts.force_index or 1 }),
     gps_tag = "[gps=0,0]",
   }
+end
+
+--- Build a fake radar ghost. Same shape as factorio.radar but type
+--- "entity-ghost", with the coverage accessor under ghost_prototype and no
+--- plain `prototype` -- so code that wrongly reads entity.prototype on a ghost
+--- fails loudly in tests.
+function factorio.radar_ghost(opts)
+  local ghost = factorio.radar(opts)
+  ghost.type = "entity-ghost"
+  ghost.ghost_prototype = ghost.prototype
+  ghost.prototype = nil
+  return ghost
 end
 
 --- A force registered in game.forces so `pairs(game.forces)` sees it, with a

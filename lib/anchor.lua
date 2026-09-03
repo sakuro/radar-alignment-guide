@@ -8,6 +8,11 @@ end
 
 function Anchor.init()
   ensure_storage()
+  -- Per-player game.tick of the last build warning: a transient debounce cache
+  -- (see Anchor.on_built). Anchor.init clears it on on_init / on_configuration_changed;
+  -- a stale tick from an earlier session never equals a future game.tick, so it
+  -- needs no migration and is kept out of the storage schema.
+  storage.anchor_build_warned = {}
 end
 
 --- The raw anchor record for (force_index, surface_index), or nil. Does not
@@ -223,28 +228,50 @@ function Anchor.on_forces_merged(source_index, destination_index)
   end
 end
 
---- Call when a radar entity is built. Auto-designates it as the anchor if its
---- force/surface has none yet; otherwise, when a building player is present
---- and the new radar covers more area than the anchor, shows them a flying
---- text. A narrower radar leaves a gap that is already visible on the grid,
---- and re-anchoring to it would only tighten the grid, so that case is left
---- unwarned.
-function Anchor.on_built(radar, player)
-  local current = Anchor.get(radar.force.index, radar.surface.index)
+--- Coverage radius in chunks for a radar entity or a radar ghost. For a ghost,
+--- entity.prototype is the "entity-ghost" prototype, so the radar's own
+--- prototype is reached via entity.ghost_prototype; entity.quality is the
+--- quality it will be built at either way.
+local function coverage_range(entity)
+  if entity.type == "entity-ghost" then
+    return entity.ghost_prototype.get_max_distance_of_nearby_sector_revealed(entity.quality)
+  end
+  return entity.prototype.get_max_distance_of_nearby_sector_revealed(entity.quality)
+end
+
+--- Call when a radar entity or radar ghost is built. For a real radar with no
+--- anchor yet on its force/surface, auto-designates it and announces it to the
+--- force. For a ghost, or when an anchor already exists: if a building player
+--- is present and the new radar/ghost covers more area than the anchor, shows
+--- them a flying text -- at most once per player per tick, since one blueprint
+--- stamp fires this once per radar ghost on the same tick. A narrower radar
+--- leaves a gap already visible on the grid and re-anchoring to it would only
+--- tighten the grid, so that case is left unwarned. A ghost is never
+--- auto-designated as the anchor (it cannot be registered for
+--- on_object_destroyed); when a bot revives it, on_robot_built_entity handles
+--- the real entity.
+function Anchor.on_built(entity, player)
+  local is_ghost = entity.type == "entity-ghost"
+  local current = Anchor.get(entity.force.index, entity.surface.index)
   if not current then
-    designate(radar)
-    radar.force.print({"radar-alignment-guide.anchor-auto-set-message", radar.gps_tag})
+    if is_ghost then
+      return
+    end
+    designate(entity)
+    entity.force.print({"radar-alignment-guide.anchor-auto-set-message", entity.gps_tag})
     return
   end
   if not (player and player.valid) then
     return
   end
-  local anchor_range = current.prototype.get_max_distance_of_nearby_sector_revealed(current.quality)
-  local new_range = radar.prototype.get_max_distance_of_nearby_sector_revealed(radar.quality)
-  if new_range > anchor_range then
+  if storage.anchor_build_warned[player.index] == game.tick then
+    return
+  end
+  if coverage_range(entity) > coverage_range(current) then
+    storage.anchor_build_warned[player.index] = game.tick
     player.create_local_flying_text({
       text = {"radar-alignment-guide.anchor-outranges-flying-text"},
-      position = radar.position,
+      position = entity.position,
     })
   end
 end

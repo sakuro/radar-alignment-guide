@@ -85,6 +85,52 @@ describe("Anchor", function()
 
       assert.same({}, factorio.flying_text)
     end)
+
+    it("warns the builder when a radar ghost out-ranges the anchor", function()
+      Anchor.set(factorio.radar({ unit_number = 1, range = 3 }))
+      local player = factorio.player({ index = 1 })
+      local ghost = factorio.radar_ghost({ unit_number = 2, range = 5, position = { x = 7, y = 9 } })
+
+      Anchor.on_built(ghost, player)
+
+      assert.same({ "radar-alignment-guide.anchor-outranges-flying-text" }, factorio.flying_text[1].text)
+      assert.same({ x = 7, y = 9 }, factorio.flying_text[1].position)
+      assert.equals(1, #factorio.flying_text)
+    end)
+
+    it("does nothing for a radar ghost when there is no anchor", function()
+      local player = factorio.player({ index = 1 })
+
+      Anchor.on_built(factorio.radar_ghost({ unit_number = 1, range = 5 }), player)
+
+      assert.is_nil(storage.anchors[1])
+      assert.same({}, factorio.printed)
+      assert.same({}, factorio.flying_text)
+    end)
+
+    it("does not warn for a radar ghost with equal or smaller range", function()
+      Anchor.set(factorio.radar({ unit_number = 1, range = 5 }))
+      local player = factorio.player({ index = 1 })
+
+      Anchor.on_built(factorio.radar_ghost({ unit_number = 2, range = 5 }), player)
+      _G.game.tick = 2
+      Anchor.on_built(factorio.radar_ghost({ unit_number = 3, range = 3 }), player)
+
+      assert.same({}, factorio.flying_text)
+    end)
+
+    it("warns at most once per player per tick", function()
+      Anchor.set(factorio.radar({ unit_number = 1, range = 3 }))
+      local player = factorio.player({ index = 1 })
+
+      Anchor.on_built(factorio.radar_ghost({ unit_number = 2, range = 5 }), player)
+      Anchor.on_built(factorio.radar_ghost({ unit_number = 3, range = 5 }), player)
+      assert.equals(1, #factorio.flying_text)
+
+      _G.game.tick = 2
+      Anchor.on_built(factorio.radar_ghost({ unit_number = 4, range = 5 }), player)
+      assert.equals(2, #factorio.flying_text)
+    end)
   end)
 
   describe("on_object_destroyed", function()
