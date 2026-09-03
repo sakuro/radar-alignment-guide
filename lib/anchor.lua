@@ -249,6 +249,59 @@ function Anchor.on_built(radar, player)
   end
 end
 
+--- One-time pass for a save the mod was just added to: adopt an existing radar
+--- as the anchor for each (force, surface) that has radars but no anchor, and
+--- tell each affected force once. Gated by storage.bootstrapped so it runs once.
+--- A save that already ran it keeps the flag even across a migration reset
+--- (control.lua preserves it), so wiped anchors are re-designated by hand via
+--- the migration-reset notice, not silently re-adopted here.
+function Anchor.bootstrap()
+  if storage.bootstrapped then
+    return
+  end
+  storage.bootstrapped = true
+
+  local radar_names = {}
+  for name in pairs(prototypes.get_entity_filtered({{filter = "type", type = "radar"}})) do
+    radar_names[#radar_names + 1] = name
+  end
+
+  for _, force in pairs(game.forces) do
+    -- get_entity_count is an O(1) maintained counter, force-wide across all
+    -- surfaces. A force with no radars (enemy, neutral, empty player forces)
+    -- is skipped before any per-surface chunk scan.
+    local total = 0
+    for _, name in ipairs(radar_names) do
+      total = total + force.get_entity_count(name)
+    end
+    if total > 0 then
+      local adopted = {}
+      for _, surface in pairs(game.surfaces) do
+        if not Anchor.get(force.index, surface.index) then
+          local found = surface.find_entities_filtered({
+            type = "radar",
+            force = force,
+            limit = 1,
+          })
+          if found[1] then
+            designate(found[1])
+            adopted[#adopted + 1] = found[1].gps_tag
+          end
+        end
+      end
+      if #adopted > 0 then
+        -- One line per force. Each adopted anchor's gps_tag stays a clickable
+        -- link inside the joined string, but the "how to change it" hint is
+        -- shown once instead of repeating per surface.
+        force.print({
+          "radar-alignment-guide.anchor-bootstrap-message",
+          table.concat(adopted, " "),
+        })
+      end
+    end
+  end
+end
+
 --- Wire to the "radar-alignment-guide-toggle-anchor" custom input. Toggles the
 --- anchor designation of the radar the player is pointing at.
 function Anchor.on_toggle(player_index)

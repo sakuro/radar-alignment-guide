@@ -14,11 +14,22 @@ script.on_init(function()
   -- later unrelated on_configuration_changed does not surface a stale notice.
   storage.migration_reset = nil
   init()
+  Anchor.bootstrap()
 end)
 
 script.on_configuration_changed(function()
+  -- bootstrapped marks that the one-time adoption pass already ran on this
+  -- save. It is not schema data, so a migration reset (which wipes storage)
+  -- must not clear it: the mod is not "newly added" just because the schema
+  -- broke. The reset notice already tells players to re-designate wiped
+  -- anchors by hand.
+  local was_bootstrapped = storage.bootstrapped
   Migration.apply(storage, migrations)
+  if was_bootstrapped then
+    storage.bootstrapped = true
+  end
   init()
+  Anchor.bootstrap()
   if storage.migration_reset then
     storage.migration_reset = nil
     game.print({"radar-alignment-guide.migration-reset-message"})

@@ -263,4 +263,97 @@ describe("Anchor", function()
       assert.is_nil(storage.anchors[1][1].chart_tag)
     end)
   end)
+
+  describe("bootstrap", function()
+    it("adopts one radar per (force, surface) with radars and no anchor, and notifies the force", function()
+      factorio.world_radar({ unit_number = 1, force_index = 1, surface_index = 1 })
+      factorio.world_radar({ unit_number = 2, force_index = 1, surface_index = 1 })
+
+      Anchor.bootstrap()
+
+      local record = storage.anchors[1][1]
+      assert.is_not_nil(record)
+      assert.is_true(record.radar.unit_number == 1 or record.radar.unit_number == 2)
+      assert.is_number(record.useful_id)
+      assert.is_number(record.marker_render_id)
+      assert.same(
+        { "radar-alignment-guide.anchor-bootstrap-message", record.radar.gps_tag },
+        factorio.printed[1]
+      )
+      assert.equals(1, #factorio.printed)
+      assert.is_true(storage.bootstrapped)
+    end)
+
+    it("sends one message per force naming every adopted anchor", function()
+      factorio.world_radar({ unit_number = 1, force_index = 1, surface_index = 1, gps_tag = "[gps=1]" })
+      factorio.world_radar({ unit_number = 2, force_index = 1, surface_index = 2, gps_tag = "[gps=2]" })
+
+      Anchor.bootstrap()
+
+      assert.is_not_nil(storage.anchors[1][1])
+      assert.is_not_nil(storage.anchors[1][2])
+      assert.equals(1, #factorio.printed)
+      assert.equals("radar-alignment-guide.anchor-bootstrap-message", factorio.printed[1][1])
+      local locations = factorio.printed[1][2]
+      assert.is_truthy(locations:find("[gps=1]", 1, true))
+      assert.is_truthy(locations:find("[gps=2]", 1, true))
+    end)
+
+    it("runs only once", function()
+      factorio.world_radar({ unit_number = 1, force_index = 1, surface_index = 1 })
+      Anchor.bootstrap()
+      local printed_after_first = #factorio.printed
+
+      factorio.world_radar({ unit_number = 2, force_index = 1, surface_index = 2 })
+      Anchor.bootstrap()
+
+      assert.is_nil(storage.anchors[1][2])
+      assert.equals(printed_after_first, #factorio.printed)
+    end)
+
+    it("skips a force with no radars without scanning its surfaces", function()
+      local scanned_force_indices = {}
+      local surface = factorio.world_surface(1)
+      local real_find = surface.find_entities_filtered
+      surface.find_entities_filtered = function(opts)
+        if opts.force then
+          scanned_force_indices[opts.force.index] = true
+        end
+        return real_find(opts)
+      end
+      factorio.world_radar({ unit_number = 1, force_index = 1, surface_index = 1 })
+      factorio.world_force(2) -- registered, no radars
+
+      Anchor.bootstrap()
+
+      assert.is_nil(storage.anchors[2])
+      assert.is_nil(scanned_force_indices[2])
+      assert.is_true(scanned_force_indices[1])
+    end)
+
+    it("skips a (force, surface) that already has an anchor", function()
+      local existing = factorio.world_radar({ unit_number = 1, force_index = 1, surface_index = 1 })
+      Anchor.set(existing)
+      factorio.world_radar({ unit_number = 2, force_index = 1, surface_index = 1 })
+
+      Anchor.bootstrap()
+
+      assert.equals(existing, storage.anchors[1][1].radar)
+      assert.equals(1, #factorio.printed)
+      assert.same(
+        { "radar-alignment-guide.anchor-set-message", existing.gps_tag },
+        factorio.printed[1]
+      )
+    end)
+
+    it("sets the flag and prints nothing when there are no radars", function()
+      factorio.world_force(1)
+
+      Anchor.bootstrap()
+
+      assert.is_nil(storage.anchors[1])
+      assert.is_true(storage.bootstrapped)
+      assert.same({}, factorio.printed)
+    end)
+  end)
 end)

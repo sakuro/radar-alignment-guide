@@ -2,6 +2,18 @@
 --- module under test, and call `factorio.reset()` in `before_each`.
 local factorio = {}
 
+local forces_metatable = {
+  __index = function(_, index)
+    return {
+      index = index,
+      valid = true,
+      print = function(message)
+        table.insert(factorio.printed, message)
+      end,
+    }
+  end,
+}
+
 local next_render_id
 local render_objects
 
@@ -24,6 +36,10 @@ function factorio.reset()
   factorio._players = {}
   factorio.flying_text = {}
   factorio.show_map_tag = false
+  factorio._world = {}
+  factorio._radar_prototype_names = { "radar" }
+  _G.game.forces = setmetatable({}, forces_metatable)
+  _G.game.surfaces = {}
 end
 
 --- Build a fake force table.
@@ -67,6 +83,108 @@ function factorio.radar(opts)
     force = factorio.force({ index = opts.force_index or 1 }),
     gps_tag = "[gps=0,0]",
   }
+end
+
+--- A force registered in game.forces so `pairs(game.forces)` sees it, with a
+--- get_entity_count backed by factorio._world.
+function factorio.world_force(index)
+  index = index or 1
+  local existing = rawget(_G.game.forces, index)
+  if existing then
+    return existing
+  end
+  local force = {
+    index = index,
+    valid = true,
+    print = function(message)
+      table.insert(factorio.printed, message)
+    end,
+    add_chart_tag = function()
+      if not factorio.show_map_tag then
+        return nil
+      end
+      local tag = { valid = true }
+      function tag.destroy()
+        tag.valid = false
+      end
+      return tag
+    end,
+    get_entity_count = function(name)
+      local count = 0
+      for _, radars in pairs(factorio._world) do
+        for _, radar in ipairs(radars) do
+          if radar.force.index == index and radar.name == name then
+            count = count + 1
+          end
+        end
+      end
+      return count
+    end,
+  }
+  _G.game.forces[index] = force
+  return force
+end
+
+--- A surface registered in game.surfaces, with find_entities_filtered backed by
+--- factorio._world[index].
+function factorio.world_surface(index)
+  index = index or 1
+  if _G.game.surfaces[index] then
+    return _G.game.surfaces[index]
+  end
+  local surface = {
+    index = index,
+    find_entities_filtered = function(opts)
+      local matches = {}
+      for _, radar in ipairs(factorio._world[index] or {}) do
+        local ok = true
+        if opts.type and radar.type ~= opts.type then
+          ok = false
+        end
+        if opts.force and radar.force.index ~= opts.force.index then
+          ok = false
+        end
+        if ok then
+          matches[#matches + 1] = radar
+          if opts.limit and #matches >= opts.limit then
+            break
+          end
+        end
+      end
+      return matches
+    end,
+  }
+  _G.game.surfaces[index] = surface
+  return surface
+end
+
+--- Like factorio.radar, but also placed in the world: its force is registered
+--- in game.forces and it is discoverable by get_entity_count /
+--- find_entities_filtered.
+function factorio.world_radar(opts)
+  opts = opts or {}
+  local surface_index = opts.surface_index or 1
+  local force = factorio.world_force(opts.force_index or 1)
+  factorio.world_surface(surface_index)
+  local radar = {
+    valid = true,
+    type = opts.type or "radar",
+    unit_number = opts.unit_number or 1,
+    name = opts.name or "radar",
+    quality = { name = opts.quality or "normal" },
+    prototype = {
+      get_max_distance_of_nearby_sector_revealed = function()
+        return opts.range or 3
+      end,
+    },
+    position = opts.position or { x = 0, y = 0 },
+    surface = { index = surface_index },
+    force = force,
+    gps_tag = opts.gps_tag or "[gps=0,0]",
+  }
+  factorio._world[surface_index] = factorio._world[surface_index] or {}
+  table.insert(factorio._world[surface_index], radar)
+  return radar
 end
 
 --- Build a fake player and register it for game.get_player.
@@ -121,17 +239,16 @@ _G.game = {
   get_player = function(index)
     return factorio._players[index]
   end,
-  forces = setmetatable({}, {
-    __index = function(_, index)
-      return {
-        index = index,
-        valid = true,
-        print = function(message)
-          table.insert(factorio.printed, message)
-        end,
-      }
-    end,
-  }),
+}
+
+_G.prototypes = {
+  get_entity_filtered = function(_)
+    local result = {}
+    for _, name in ipairs(factorio._radar_prototype_names) do
+      result[name] = { name = name }
+    end
+    return result
+  end,
 }
 
 factorio.reset()
