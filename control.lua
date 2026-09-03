@@ -41,17 +41,25 @@ script.on_event("radar-alignment-guide-toggle-anchor", function(event)
 end)
 
 local radar_filter = {{filter = "type", type = "radar"}}
+-- on_built_entity also carries player-placed radar ghosts (blueprint stamp,
+-- manual ghost placement); the other build events never deliver a ghost with a
+-- player_index, so they stay radar-only.
+local radar_or_ghost_filter = {
+  {filter = "type", type = "radar"},
+  {filter = "ghost_type", type = "radar"},
+}
 
 local function on_built(event)
   local entity = event.entity
-  -- All five wired events carry radar_filter, so no type recheck is needed.
+  -- The wired filters guarantee a radar or (for on_built_entity) a radar ghost;
+  -- Anchor.on_built branches on entity.type, so no recheck here.
   if entity and entity.valid then
     local player = event.player_index and game.get_player(event.player_index)
     Anchor.on_built(entity, player)
   end
 end
 
-script.on_event(defines.events.on_built_entity, on_built, radar_filter)
+script.on_event(defines.events.on_built_entity, on_built, radar_or_ghost_filter)
 script.on_event(defines.events.on_robot_built_entity, on_built, radar_filter)
 script.on_event(defines.events.on_space_platform_built_entity, on_built, radar_filter)
 script.on_event(defines.events.script_raised_built, on_built, radar_filter)
