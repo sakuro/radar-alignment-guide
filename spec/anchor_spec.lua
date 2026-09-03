@@ -284,6 +284,21 @@ describe("Anchor", function()
       assert.is_true(storage.bootstrapped)
     end)
 
+    it("sends one message per force naming every adopted anchor", function()
+      factorio.world_radar({ unit_number = 1, force_index = 1, surface_index = 1, gps_tag = "[gps=1]" })
+      factorio.world_radar({ unit_number = 2, force_index = 1, surface_index = 2, gps_tag = "[gps=2]" })
+
+      Anchor.bootstrap()
+
+      assert.is_not_nil(storage.anchors[1][1])
+      assert.is_not_nil(storage.anchors[1][2])
+      assert.equals(1, #factorio.printed)
+      assert.equals("radar-alignment-guide.anchor-bootstrap-message", factorio.printed[1][1])
+      local locations = factorio.printed[1][2]
+      assert.is_truthy(locations:find("[gps=1]", 1, true))
+      assert.is_truthy(locations:find("[gps=2]", 1, true))
+    end)
+
     it("runs only once", function()
       factorio.world_radar({ unit_number = 1, force_index = 1, surface_index = 1 })
       Anchor.bootstrap()

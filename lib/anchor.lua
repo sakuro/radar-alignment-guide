@@ -251,7 +251,7 @@ end
 
 --- One-time pass for a save the mod was just added to: adopt an existing radar
 --- as the anchor for each (force, surface) that has radars but no anchor, and
---- tell each affected force. Gated by storage.bootstrapped so it runs once.
+--- tell each affected force once. Gated by storage.bootstrapped so it runs once.
 --- A save that already ran it keeps the flag even across a migration reset
 --- (control.lua preserves it), so wiped anchors are re-designated by hand via
 --- the migration-reset notice, not silently re-adopted here.
@@ -275,6 +275,7 @@ function Anchor.bootstrap()
       total = total + force.get_entity_count(name)
     end
     if total > 0 then
+      local adopted = {}
       for _, surface in pairs(game.surfaces) do
         if not Anchor.get(force.index, surface.index) then
           local found = surface.find_entities_filtered({
@@ -284,9 +285,18 @@ function Anchor.bootstrap()
           })
           if found[1] then
             designate(found[1])
-            force.print({"radar-alignment-guide.anchor-bootstrap-message", found[1].gps_tag})
+            adopted[#adopted + 1] = found[1].gps_tag
           end
         end
+      end
+      if #adopted > 0 then
+        -- One line per force. Each adopted anchor's gps_tag stays a clickable
+        -- link inside the joined string, but the "how to change it" hint is
+        -- shown once instead of repeating per surface.
+        force.print({
+          "radar-alignment-guide.anchor-bootstrap-message",
+          table.concat(adopted, " "),
+        })
       end
     end
   end
