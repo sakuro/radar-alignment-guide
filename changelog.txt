@@ -1,5 +1,6 @@
 ---------------------------------------------------------------------------------------------------
-Version: Unreleased
+Version: 0.6.0
+Date: 2026-09-03
   Changes:
     - The build-time radar warning now appears only when the new radar covers more area than the anchor, and it names the key that re-anchors it.
     - When the mod is added to a save that already has radars, one radar per force and surface is auto-designated as the alignment anchor.
