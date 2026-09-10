@@ -10,13 +10,13 @@
       "automerge": false
     },
     {
+      "matchDepNames": ["hk", "jdx/hk"],
+      "groupName": "hk"
+    },
+    {
       "matchManagers": ["mise"],
       "matchDepNames": ["lua"],
       "enabled": false
-    },
-    {
-      "matchDepNames": ["hk", "jdx/hk"],
-      "groupName": "hk"
     }
   ],
   "customManagers": [
@@ -37,6 +37,16 @@
       ],
       "datasourceTemplate": "github-releases",
       "depNameTemplate": "sakuro/git-hooks"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/mise\\.toml$/"],
+      "matchStrings": [
+        "luarocks install --local busted (?<currentValue>[0-9.]+)"
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "lunarmodules/busted",
+      "extractVersionTemplate": "^v(?<version>.+)$"
     }
   ]
 }
