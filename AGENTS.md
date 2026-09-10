@@ -23,6 +23,16 @@ Root-level Lua files are limited to the Factorio stage entry points (`settings.l
 - `prototypes/` - declarative prototype definitions (`data:extend({...})`), used from both the settings stage (setting prototypes) and the data stage (item/recipe/entity/etc. prototypes)
 - `lib/` - runtime code: control-stage logic and helpers shared across stages
 
+## Tests
+
+`spec/` holds busted unit tests; run them with `mise run test`.
+
+Cover pure logic only — code that does not touch the Factorio runtime (`game`, `script`, `rendering`, `defines`, `data`, prototype globals). Keep such logic in `lib/` as functions over plain values so a spec can `require` it directly (e.g. `require("lib.foo")`). Runtime-integrated behavior is out of scope for these tests.
+
+`spec/example_spec.lua` is a placeholder — replace it with real specs.
+
+`spec/helper.lua` runs once before any spec loads — the place for setup that must precede the first `require` of the code under test (e.g. Factorio global stubs). Keep it idempotent.
+
 ## Release
 
 Releases are handled by GitHub Actions workflows. Do not run `mise run release:*` tasks manually.
@@ -36,16 +46,15 @@ Changelog is managed by `factorix mod changelog` and follows Factorio's changelo
 
 ### Updating the changelog during development
 
-Write entries in the Unreleased section at the top of the file. If no Unreleased
-section exists, create one — the release workflow does not add one back after a
-release, so between releases the top section is the last released version.
+`Version: Unreleased` marks the not-yet-released section. The release workflow renames it to the released version and does not open a new one, so between releases `changelog.txt` starts with the last released version. Add a fresh `Unreleased` section at the top for the first user-visible change of a new cycle; put later entries in that same section.
 
 Do not create a section for the next release version directly — version bumping is handled by the GitHub Actions release workflow.
 
 # Document Map
 
 - README.md: Project overview
-- CONTRIBUTING.md: Pull request guidelines
+- CONTRIBUTING.md: Development setup and pull request guidelines
+- .scaffold-sync.json / .scaffold-sync.paths: scaffold-drift sync state and tracked-path list; do not delete (see CONTRIBUTING.md "Scaffold drift")
 
 # External References
 

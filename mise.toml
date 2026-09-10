@@ -3,15 +3,18 @@ gh = "2.100.0"
 gitleaks = "8.30"
 jq = "1.8.2"
 hk = "1.58.1"
-"github:sakuro/factorix" = "0.24.0"
+actionlint = "1.7.12"
+shellcheck = "0.11.0"
 lua = "5.2" # Factorio's Lua version; never bump (see .github/renovate.json)
+"github:sakuro/factorix" = "0.24.0"
 
 [hooks]
 # hk install: skipped in CI (GitHub Actions sets CI); hk falls back to script shims on Git < 2.54.
-# busted: needed by `mise run test`, including in CI.
+# busted: needed by `mise run test`, including in CI. Version bumped by Renovate (see .github/renovate.json).
+# The guard skips this when luarocks is unavailable — release workflows set MISE_DISABLE_TOOLS=lua.
 postinstall = [
   'test -n "$CI" || hk install',
-  'luarocks install --local busted',
+  '! luarocks --version >/dev/null 2>&1 || luarocks install --local busted 2.3.0',
 ]
 
 [settings]

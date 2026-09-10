@@ -18,6 +18,8 @@
 /control.lua export-ignore=false
 */**/*.lua export-ignore=false
 
+/migrations/*.json export-ignore=false
+
 /thumbnail.png export-ignore=false binary
 */**/*.png export-ignore=false binary
 
@@ -25,6 +27,6 @@
 
 */ export-ignore=false
 .*/ export-ignore
+/spec/ export-ignore
 /tasks/ export-ignore
 /doc/ export-ignore
-/spec/ export-ignore
