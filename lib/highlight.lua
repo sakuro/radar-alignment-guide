@@ -110,7 +110,7 @@ local function draw_player_highlight(player, state)
     if not storage.warned_players[player.index] then
       storage.warned_players[player.index] = true
       player.create_local_flying_text({
-        text = {"radar-alignment-guide.no-anchor-warning"},
+        text = { "radar-alignment-guide.no-anchor-warning" },
         create_at_cursor = true,
       })
     end
@@ -128,14 +128,14 @@ local function draw_player_highlight(player, state)
   local render_ids = {}
   for chunk_x = range.left, range.right do
     for chunk_y = range.top, range.bottom do
-      if Grid.is_on_grid(anchor_chunk, spacing, {x = chunk_x, y = chunk_y}) then
+      if Grid.is_on_grid(anchor_chunk, spacing, { x = chunk_x, y = chunk_y }) then
         local render_object = rendering.draw_rectangle({
           color = color,
           filled = true,
-          left_top = {chunk_x * Grid.CHUNK_TILES, chunk_y * Grid.CHUNK_TILES},
-          right_bottom = {(chunk_x + 1) * Grid.CHUNK_TILES, (chunk_y + 1) * Grid.CHUNK_TILES},
+          left_top = { chunk_x * Grid.CHUNK_TILES, chunk_y * Grid.CHUNK_TILES },
+          right_bottom = { (chunk_x + 1) * Grid.CHUNK_TILES, (chunk_y + 1) * Grid.CHUNK_TILES },
           surface = player.surface,
-          players = {player},
+          players = { player },
         })
         table.insert(render_ids, render_object.id)
       end

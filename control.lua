@@ -32,7 +32,7 @@ script.on_configuration_changed(function()
   Anchor.bootstrap()
   if storage.migration_reset then
     storage.migration_reset = nil
-    game.print({"radar-alignment-guide.migration-reset-message"})
+    game.print({ "radar-alignment-guide.migration-reset-message" })
   end
 end)
 
@@ -40,13 +40,13 @@ script.on_event("radar-alignment-guide-toggle-anchor", function(event)
   Anchor.on_toggle(event.player_index)
 end)
 
-local radar_filter = {{filter = "type", type = "radar"}}
+local radar_filter = { { filter = "type", type = "radar" } }
 -- on_built_entity also carries player-placed radar ghosts (blueprint stamp,
 -- manual ghost placement); the other build events never deliver a ghost with a
 -- player_index, so they stay radar-only.
 local radar_or_ghost_filter = {
-  {filter = "type", type = "radar"},
-  {filter = "ghost_type", type = "radar"},
+  { filter = "type", type = "radar" },
+  { filter = "ghost_type", type = "radar" },
 }
 
 local function on_built(event)
