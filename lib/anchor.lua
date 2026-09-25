@@ -57,7 +57,7 @@ local function create_marker(record, radar)
     sprite = "utility/reference_point",
     target = radar,
     surface = radar.surface,
-    forces = {radar.force},
+    forces = { radar.force },
     only_in_alt_mode = false,
   })
   record.marker_render_id = render_object.id
@@ -77,7 +77,7 @@ local function create_chart_tag(record, radar)
   end
   local tag = radar.force.add_chart_tag(radar.surface, {
     position = radar.position,
-    icon = {type = "entity", name = radar.name},
+    icon = { type = "entity", name = radar.name },
     -- add_chart_tag's `text` is a plain string, not a LocalisedString, so this
     -- one label cannot be localized.
     text = "Radar Alignment Guide Anchor",
@@ -138,7 +138,7 @@ local function designate(radar)
   -- went invalid without an on_object_destroyed (no-op when there is no record).
   forget(force_index, surface_index)
   local _, useful_id = script.register_on_object_destroyed(radar)
-  local record = {radar = radar, useful_id = useful_id}
+  local record = { radar = radar, useful_id = useful_id }
   storage.anchors[force_index] = storage.anchors[force_index] or {}
   storage.anchors[force_index][surface_index] = record
   create_marker(record, radar)
@@ -150,7 +150,7 @@ end
 --- force. No-op if `radar` is already the anchor.
 function Anchor.set(radar)
   if designate(radar) then
-    radar.force.print({"radar-alignment-guide.anchor-set-message", radar.gps_tag})
+    radar.force.print({ "radar-alignment-guide.anchor-set-message", radar.gps_tag })
   end
 end
 
@@ -171,7 +171,7 @@ function Anchor.on_object_destroyed(event)
         forget(force_index, surface_index)
         local force = game.forces[force_index]
         if force and force.valid then
-          force.print({"radar-alignment-guide.anchor-destroyed-message"})
+          force.print({ "radar-alignment-guide.anchor-destroyed-message" })
         end
         return
       end
@@ -208,9 +208,7 @@ function Anchor.on_forces_merged(source_index, destination_index)
     if kept then
       local kept_gps = kept.radar and kept.radar.valid and kept.radar.gps_tag
       if force_valid and record_gps and kept_gps then
-        destination_force.print(
-          {"radar-alignment-guide.anchor-merged-dropped-message", record_gps, kept_gps}
-        )
+        destination_force.print({ "radar-alignment-guide.anchor-merged-dropped-message", record_gps, kept_gps })
       end
     else
       storage.anchors[destination_index] = storage.anchors[destination_index] or {}
@@ -220,9 +218,7 @@ function Anchor.on_forces_merged(source_index, destination_index)
         create_chart_tag(record, record.radar)
       end
       if force_valid and record_gps then
-        destination_force.print(
-          {"radar-alignment-guide.anchor-merged-moved-message", record_gps}
-        )
+        destination_force.print({ "radar-alignment-guide.anchor-merged-moved-message", record_gps })
       end
     end
   end
@@ -258,7 +254,7 @@ function Anchor.on_built(entity, player)
       return
     end
     designate(entity)
-    entity.force.print({"radar-alignment-guide.anchor-auto-set-message", entity.gps_tag})
+    entity.force.print({ "radar-alignment-guide.anchor-auto-set-message", entity.gps_tag })
     return
   end
   if not (player and player.valid) then
@@ -270,7 +266,7 @@ function Anchor.on_built(entity, player)
   if coverage_range(entity) > coverage_range(current) then
     storage.anchor_build_warned[player.index] = game.tick
     player.create_local_flying_text({
-      text = {"radar-alignment-guide.anchor-outranges-flying-text"},
+      text = { "radar-alignment-guide.anchor-outranges-flying-text" },
       position = entity.position,
     })
   end
@@ -289,7 +285,7 @@ function Anchor.bootstrap()
   storage.bootstrapped = true
 
   local radar_names = {}
-  for name in pairs(prototypes.get_entity_filtered({{filter = "type", type = "radar"}})) do
+  for name in pairs(prototypes.get_entity_filtered({ { filter = "type", type = "radar" } })) do
     radar_names[#radar_names + 1] = name
   end
 
@@ -339,7 +335,7 @@ function Anchor.on_toggle(player_index)
   local radar = player.selected
   if Anchor.is_anchor(radar) then
     Anchor.clear(radar.force.index, radar.surface.index)
-    radar.force.print({"radar-alignment-guide.anchor-cleared-message"})
+    radar.force.print({ "radar-alignment-guide.anchor-cleared-message" })
   else
     Anchor.set(radar)
   end

@@ -235,10 +235,7 @@ describe("Anchor", function()
 
       Anchor.on_forces_merged(1, 2)
 
-      assert.same(
-        { "radar-alignment-guide.anchor-merged-dropped-message", "SRC", "DST" },
-        factorio.printed[1]
-      )
+      assert.same({ "radar-alignment-guide.anchor-merged-dropped-message", "SRC", "DST" }, factorio.printed[1])
     end)
 
     it("prints nothing when the source force has no anchors", function()
@@ -322,10 +319,7 @@ describe("Anchor", function()
       assert.is_true(record.radar.unit_number == 1 or record.radar.unit_number == 2)
       assert.is_number(record.useful_id)
       assert.is_number(record.marker_render_id)
-      assert.same(
-        { "radar-alignment-guide.anchor-bootstrap-message", record.radar.gps_tag },
-        factorio.printed[1]
-      )
+      assert.same({ "radar-alignment-guide.anchor-bootstrap-message", record.radar.gps_tag }, factorio.printed[1])
       assert.equals(1, #factorio.printed)
       assert.is_true(storage.bootstrapped)
     end)
@@ -386,10 +380,7 @@ describe("Anchor", function()
 
       assert.equals(existing, storage.anchors[1][1].radar)
       assert.equals(1, #factorio.printed)
-      assert.same(
-        { "radar-alignment-guide.anchor-set-message", existing.gps_tag },
-        factorio.printed[1]
-      )
+      assert.same({ "radar-alignment-guide.anchor-set-message", existing.gps_tag }, factorio.printed[1])
     end)
 
     it("sets the flag and prints nothing when there are no radars", function()

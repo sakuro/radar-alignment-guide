@@ -15,10 +15,7 @@ describe("migrations[2] (five tables -> per-anchor records)", function()
 
     migrations[2](store)
 
-    assert.same(
-      { radar = "RADAR_A", useful_id = 42, marker_render_id = 7, chart_tag = "TAG" },
-      store.anchors[1][1]
-    )
+    assert.same({ radar = "RADAR_A", useful_id = 42, marker_render_id = 7, chart_tag = "TAG" }, store.anchors[1][1])
     assert.is_nil(store.anchor_registrations)
     assert.is_nil(store.anchor_useful_ids)
     assert.is_nil(store.anchor_markers)
@@ -36,7 +33,9 @@ describe("Migration.apply", function()
   it("treats a nil schema_version as 1 and runs up to LATEST", function()
     local store = {
       anchors = { [1] = { [1] = "R" } },
-      anchor_useful_ids = {}, anchor_markers = {}, anchor_chart_tags = {},
+      anchor_useful_ids = {},
+      anchor_markers = {},
+      anchor_chart_tags = {},
     }
 
     local ok = Migration.apply(store, migrations)
@@ -58,7 +57,11 @@ describe("Migration.apply", function()
   it("resets the store and flags migration_reset when a step raises", function()
     local store = { anchors = { keep = true }, schema_version = 1 }
 
-    local ok = Migration.apply(store, { [2] = function() error("boom") end })
+    local ok = Migration.apply(store, {
+      [2] = function()
+        error("boom")
+      end,
+    })
 
     assert.is_false(ok)
     assert.is_nil(store.anchors)
