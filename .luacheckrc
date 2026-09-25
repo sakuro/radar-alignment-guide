@@ -57,11 +57,10 @@ files["lib/**/*.lua"] = {
   globals = concat(data_stage_write_globals, control_stage_write_globals),
 }
 
--- spec/**/*_spec.lua needs no override here: luacheck's own default
--- (files["**/spec/**/*_spec.lua"].std = "+busted") already matches this
--- project's spec file naming and supplies the busted DSL globals.
-
--- The busted std covers the DSL, not Factorio's globals. spec/support/factorio.lua
--- installs those with `_G.storage = ...` and `_G.rendering = ...`, and the specs
--- then use them bare, which luacheck cannot follow back to those assignments.
-files["spec/**/*_spec.lua"] = { globals = { "storage" }, read_globals = { "rendering" } }
+-- A spec exercises lib/ code and fakes whatever runtime that code touches, so
+-- it gets the same globals lib/ does. luacheck's own default adds the busted
+-- DSL on top of this for **/spec/**/*_spec.lua.
+files["spec/**/*.lua"] = {
+  read_globals = concat(data_stage_globals, control_stage_globals),
+  globals = concat(data_stage_write_globals, control_stage_write_globals),
+}
