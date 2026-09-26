@@ -1,7 +1,10 @@
 local Grid = {}
 
---- Whether `chunk` lies on the square grid anchored at `anchor_chunk` with
---- the given `radius` (chunk spacing). `radius` must be a positive integer.
+--- True when chunk lies on the square grid anchored at anchor_chunk.
+---@param anchor_chunk ChunkPosition
+---@param radius integer  chunk spacing; must be positive
+---@param chunk ChunkPosition
+---@return boolean
 function Grid.is_on_grid(anchor_chunk, radius, chunk)
   local dx = chunk.x - anchor_chunk.x
   local dy = chunk.y - anchor_chunk.y
@@ -17,9 +20,11 @@ Grid.CHUNK_TILES = 32
 -- raises the zoom-out limit.
 local MAX_HALF_EXTENT_TILES = 64 * Grid.CHUNK_TILES
 
---- The inclusive chunk-coordinate bounding box currently on screen for a
---- player at `position` (MapPosition, in tiles) with the given
---- `display_resolution` (in pixels) and `zoom` (1 = 100%).
+--- Returns the inclusive chunk-coordinate bounding box on screen for a player.
+---@param position MapPosition  in tiles
+---@param display_resolution DisplayResolution  in pixels
+---@param zoom number  1 = 100%
+---@return table  {left, right, top, bottom} in chunk coordinates
 function Grid.visible_chunk_range(position, display_resolution, zoom)
   local tiles_wide = display_resolution.width / (TILE_PIXELS * zoom)
   local tiles_tall = display_resolution.height / (TILE_PIXELS * zoom)

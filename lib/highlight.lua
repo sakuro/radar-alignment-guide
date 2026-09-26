@@ -10,6 +10,7 @@ local function ensure_storage()
   storage.warned_players = storage.warned_players or {}
 end
 
+--- Creates the highlight storage and resets the redraw-skip cache.
 function Highlight.init()
   ensure_storage()
   -- Reset unconditionally rather than `or {}`: this is a pure redraw-skip
@@ -145,7 +146,9 @@ local function draw_player_highlight(player, state)
   storage.highlight_last_state[player.index] = state
 end
 
---- Wire to defines.events.on_player_cursor_stack_changed.
+--- Starts or stops the grid highlight as the player picks up or drops a radar;
+--- wire to defines.events.on_player_cursor_stack_changed.
+---@param player_index uint
 function Highlight.on_cursor_stack_changed(player_index)
   local player = game.get_player(player_index)
   if not (player and player.valid) then
@@ -158,17 +161,24 @@ function Highlight.on_cursor_stack_changed(player_index)
   end
 end
 
---- Wire to defines.events.on_player_removed. Highlight.on_tick only visits
---- connected players, so a fully-removed player's per-player entries and any
---- leftover highlight rectangles would never be cleared otherwise.
+--- Clears a removed player's highlight state; wire to
+--- defines.events.on_player_removed.
+---
+--- Highlight.on_tick only visits connected players, so a fully-removed player's
+--- per-player entries and any leftover highlight rectangles would never be
+--- cleared otherwise.
+---@param player_index uint
 function Highlight.on_player_removed(player_index)
   stop_highlight(player_index)
 end
 
---- Wire to defines.events.on_player_left_game. A disconnected player is never
---- visited by Highlight.on_tick, so their per-player entries and any leftover
---- highlight rectangles would linger until they rejoin. Same cleanup as
---- Highlight.on_player_removed.
+--- Clears a disconnected player's highlight state; wire to
+--- defines.events.on_player_left_game.
+---
+--- A disconnected player is never visited by Highlight.on_tick, so their
+--- per-player entries and any leftover highlight rectangles would linger until
+--- they rejoin. Same cleanup as Highlight.on_player_removed.
+---@param player_index uint
 function Highlight.on_player_left_game(player_index)
   stop_highlight(player_index)
 end
