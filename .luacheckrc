@@ -4,6 +4,10 @@
 -- helpers "shared across stages", not just control-stage logic.
 std = "lua52"
 
+-- luacheck does not read .gitignore; without this, `luacheck .` also checks build
+-- output under dist/ and scratch files under tmp/.
+exclude_files = { "dist/", "tmp/" }
+
 read_globals = {
   "mods",
   "log",
