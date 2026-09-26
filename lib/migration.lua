@@ -18,8 +18,10 @@ local function run_steps(store, steps)
   end
 end
 
---- Bring `store` up to Migration.LATEST. Called from both on_init (where the
---- store is empty, so every step no-ops) and on_configuration_changed.
+--- Brings store up to Migration.LATEST.
+---
+--- Called from both on_init (where the store is empty, so every step no-ops) and
+--- on_configuration_changed.
 ---
 --- A bug in a step must not make the save unloadable: the step loop runs
 --- inside pcall, and on any error the store is wiped (a half-applied in-place
@@ -27,8 +29,9 @@ end
 --- `migration_reset` is set for control.lua to surface to players, and the
 --- error text is logged for bug reports. `schema_version` is stamped either
 --- way so a failed migration is not retried on the next load.
----
---- Returns true on success, false if a reset happened.
+---@param store table  the mod's `storage`
+---@param steps table<integer, fun(store: table)>  schema version -> step, from lib/migrations.lua
+---@return boolean  false when a failed step reset the store
 function Migration.apply(store, steps)
   local ok, err = pcall(run_steps, store, steps)
   if not ok then

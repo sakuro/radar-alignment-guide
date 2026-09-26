@@ -6,6 +6,7 @@ local function ensure_storage()
   storage.anchors = storage.anchors or {}
 end
 
+--- Creates the anchor storage and resets the build-warning debounce cache.
 function Anchor.init()
   ensure_storage()
   -- Per-player game.tick of the last build warning: a transient debounce cache
@@ -22,8 +23,10 @@ local function get_record(force_index, surface_index)
   return by_surface and by_surface[surface_index]
 end
 
---- The current anchor radar for (force_index, surface_index), or nil if there
---- is none or it's no longer valid.
+--- Returns the current anchor radar for (force_index, surface_index).
+---@param force_index uint
+---@param surface_index uint
+---@return LuaEntity|nil  nil when there is none or it's no longer valid
 function Anchor.get(force_index, surface_index)
   local record = get_record(force_index, surface_index)
   if record and record.radar and record.radar.valid then
@@ -32,6 +35,9 @@ function Anchor.get(force_index, surface_index)
   return nil
 end
 
+--- True when the entity is the current anchor radar of its force and surface.
+---@param entity LuaEntity|nil
+---@return boolean
 function Anchor.is_anchor(entity)
   if not (entity and entity.valid) then
     return false
@@ -100,9 +106,12 @@ local function forget(force_index, surface_index)
   by_surface[surface_index] = nil
 end
 
---- Recreate the chart tag for the current anchor at (force_index,
---- surface_index), honoring the current map-tag setting. Called when the
---- setting is toggled at runtime.
+--- Recreates the chart tag for the anchor at (force_index, surface_index),
+--- honoring the current map-tag setting.
+---
+--- Called when the setting is toggled at runtime.
+---@param force_index uint
+---@param surface_index uint
 function Anchor.refresh_chart_tag(force_index, surface_index)
   local record = get_record(force_index, surface_index)
   if not record then
@@ -146,24 +155,29 @@ local function designate(radar)
   return true
 end
 
---- Designate `radar` as the anchor for its force/surface, announcing it to the
---- force. No-op if `radar` is already the anchor.
+--- Designates the radar as the anchor for its force and surface, announcing it
+--- to the force. No-op if the radar is already the anchor.
+---@param radar LuaEntity
 function Anchor.set(radar)
   if designate(radar) then
     radar.force.print({ "radar-alignment-guide.anchor-set-message", radar.gps_tag })
   end
 end
 
---- Clear the anchor for (force_index, surface_index), if any.
+--- Clears the anchor for (force_index, surface_index), if any.
+---@param force_index uint
+---@param surface_index uint
 function Anchor.clear(force_index, surface_index)
   forget(force_index, surface_index)
 end
 
---- Wire this to defines.events.on_object_destroyed. Clears the anchor and
---- notifies the force if the destroyed object was an anchor radar. The event
---- carries only numeric ids, so the affected scope is found by scanning for a
---- record whose useful_id matches; a stale late event for a replaced anchor
---- matches nothing and is ignored.
+--- Clears the anchor and notifies the force when the destroyed object was an
+--- anchor radar; wire to defines.events.on_object_destroyed.
+---
+--- The event carries only numeric ids, so the affected scope is found by
+--- scanning for a record whose useful_id matches; a stale late event for a
+--- replaced anchor matches nothing and is ignored.
+---@param event EventData.on_object_destroyed
 function Anchor.on_object_destroyed(event)
   for force_index, by_surface in pairs(storage.anchors) do
     for surface_index, record in pairs(by_surface) do
@@ -179,15 +193,18 @@ function Anchor.on_object_destroyed(event)
   end
 end
 
---- Wire to defines.events.on_forces_merged. The source force is gone and its
---- entities (anchor radars included) now belong to the destination force, but
---- storage still keys their records under the old source index. Move each
---- source record to the destination scope, per surface. Where the destination
---- already has an anchor on that surface it wins and the source record is
---- dropped. A moved record's marker and chart tag are rebuilt, since the
---- originals reference the now-invalid source force. The destination force is
---- told about each surface that changed -- an anchor being set, or a duplicate
---- being discarded (naming the anchor that stays).
+--- Moves the source force's anchor records to the destination force; wire to
+--- defines.events.on_forces_merged.
+---
+--- The source force is gone and its entities (anchor radars included) now belong
+--- to the destination force, but storage still keys their records under the old
+--- source index. Where the destination already has an anchor on a surface it
+--- wins and the source record is dropped. A moved record's marker and chart tag
+--- are rebuilt, since the originals reference the now-invalid source force. The
+--- destination force is told about each surface that changed -- an anchor being
+--- set, or a duplicate being discarded (naming the anchor that stays).
+---@param source_index uint
+---@param destination_index uint
 function Anchor.on_forces_merged(source_index, destination_index)
   -- Guarded: another mod merging forces from its own on_init can raise this
   -- before our on_init has created storage.anchors.
@@ -235,17 +252,21 @@ local function coverage_range(entity)
   return entity.prototype.get_max_distance_of_nearby_sector_revealed(entity.quality)
 end
 
---- Call when a radar entity or radar ghost is built. For a real radar with no
---- anchor yet on its force/surface, auto-designates it and announces it to the
---- force. For a ghost, or when an anchor already exists: if a building player
---- is present and the new radar/ghost covers more area than the anchor, shows
---- them a flying text -- at most once per player per tick, since one blueprint
---- stamp fires this once per radar ghost on the same tick. A narrower radar
---- leaves a gap already visible on the grid and re-anchoring to it would only
---- tighten the grid, so that case is left unwarned. A ghost is never
+--- Auto-designates a newly built radar as the anchor, or warns the builder when
+--- it outranges the existing anchor.
+---
+--- For a real radar with no anchor yet on its force/surface, auto-designates it
+--- and announces it to the force. For a ghost, or when an anchor already exists:
+--- if a building player is present and the new radar/ghost covers more area than
+--- the anchor, shows them a flying text -- at most once per player per tick,
+--- since one blueprint stamp fires this once per radar ghost on the same tick. A
+--- narrower radar leaves a gap already visible on the grid and re-anchoring to it
+--- would only tighten the grid, so that case is left unwarned. A ghost is never
 --- auto-designated as the anchor (it cannot be registered for
 --- on_object_destroyed); when a bot revives it, on_robot_built_entity handles
 --- the real entity.
+---@param entity LuaEntity  a radar or a radar ghost
+---@param player LuaPlayer|nil  the builder; nil for robot and script builds
 function Anchor.on_built(entity, player)
   local is_ghost = entity.type == "entity-ghost"
   local current = Anchor.get(entity.force.index, entity.surface.index)
@@ -325,8 +346,9 @@ function Anchor.bootstrap()
   end
 end
 
---- Wire to the "radar-alignment-guide-toggle-anchor" custom input. Toggles the
---- anchor designation of the radar the player is pointing at.
+--- Toggles the anchor designation of the radar the player is pointing at; wire
+--- to the "radar-alignment-guide-toggle-anchor" custom input.
+---@param player_index uint
 function Anchor.on_toggle(player_index)
   local player = game.get_player(player_index)
   if not (player and player.selected and player.selected.type == "radar") then
@@ -341,7 +363,9 @@ function Anchor.on_toggle(player_index)
   end
 end
 
---- Wire to defines.events.on_runtime_mod_setting_changed.
+--- Refreshes chart tags when the map-tag setting changes; wire to
+--- defines.events.on_runtime_mod_setting_changed.
+---@param setting_name string
 function Anchor.on_setting_changed(setting_name)
   if setting_name == MAP_TAG_SETTING then
     Anchor.refresh_all_chart_tags()
