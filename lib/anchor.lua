@@ -201,7 +201,7 @@ end
 --- source index. Where the destination already has an anchor on a surface it
 --- wins and the source record is dropped. A moved record's marker and chart tag
 --- are rebuilt, since the originals reference the now-invalid source force. The
---- destination force is told about each surface that changed -- an anchor being
+--- destination force is told about each surface that changed: an anchor being
 --- set, or a duplicate being discarded (naming the anchor that stays).
 ---@param source_index uint
 ---@param destination_index uint
@@ -258,7 +258,7 @@ end
 --- For a real radar with no anchor yet on its force/surface, auto-designates it
 --- and announces it to the force. For a ghost, or when an anchor already exists:
 --- if a building player is present and the new radar/ghost covers more area than
---- the anchor, shows them a flying text -- at most once per player per tick,
+--- the anchor, shows them a flying text, at most once per player per tick,
 --- since one blueprint stamp fires this once per radar ghost on the same tick. A
 --- narrower radar leaves a gap already visible on the grid and re-anchoring to it
 --- would only tighten the grid, so that case is left unwarned. A ghost is never
