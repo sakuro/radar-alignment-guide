@@ -13,14 +13,13 @@ end
 --- Creates the highlight storage and resets the redraw-skip cache.
 function Highlight.init()
   ensure_storage()
-  -- Reset unconditionally rather than `or {}`: this is a pure redraw-skip
-  -- cache, not user-facing data, and its entry shape has changed between
-  -- mod versions before (raw position -> chunk range) — a stale entry
-  -- from an older version would otherwise crash the comparison in
-  -- Highlight.on_tick on the very next tick. Losing the cache just costs
-  -- one extra harmless redraw for players currently holding a radar item.
-  -- This cache keeps its unconditional wipe; other storage-shape changes go
-  -- through the schema_version migration mechanism (lib/migration.lua).
+  -- Reset unconditionally instead of `or {}`. This is a redraw-skip cache, and
+  -- its entry shape has changed between mod versions before (raw position ->
+  -- chunk range); a stale entry from an older version would crash the
+  -- comparison in Highlight.on_tick on the next tick. Losing the cache costs
+  -- one extra redraw for players currently holding a radar item. Other
+  -- storage-shape changes go through the schema_version migration mechanism
+  -- (lib/migration.lua).
   storage.highlight_last_state = {}
 end
 
@@ -63,7 +62,7 @@ end
 
 --- Stop highlighting for a player: destroy their rectangles and drop every
 --- per-player cache entry, so the next radar pickup starts from a clean
---- slate -- in particular, the no-anchor warning can fire again.
+--- slate and the no-anchor warning can fire again.
 local function stop_highlight(player_index)
   clear_player_highlight(player_index)
   storage.highlight_last_state[player_index] = nil
@@ -184,15 +183,14 @@ function Highlight.on_player_left_game(player_index)
 end
 
 --- Wire to defines.events.on_tick. Keeps the highlight following the
---- player's position (not the actual camera/view position, which Factorio's
---- API doesn't expose) for every player currently holding a radar item or
---- radar ghost. Scans all connected players (not just ones already
---- highlighting) since on_player_cursor_stack_changed is not guaranteed to
---- fire for every cursor_ghost change. Skips the redraw when nothing that
---- affects the output has changed since the last draw -- surface, visible
---- chunk range, and current anchor (see current_highlight_state) -- since
---- destroying and recreating every visible rectangle every tick regardless
---- of sub-chunk movement is wasted render churn. Because the anchor is part
+--- player's position (Factorio's API does not expose the camera position) for
+--- every player currently holding a radar item or radar ghost. Scans all
+--- connected players, including those not yet highlighting, since
+--- on_player_cursor_stack_changed is not guaranteed to fire for every
+--- cursor_ghost change. Skips the redraw unless the surface, visible chunk
+--- range, or current anchor has changed since the last draw (see
+--- current_highlight_state); recreating every visible rectangle on each tick of
+--- sub-chunk movement would be wasted render churn. Because the anchor is part
 --- of that state, an anchor appearing, being cleared, or being replaced
 --- redraws even a stationary player's grid on the next tick.
 function Highlight.on_tick()

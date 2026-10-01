@@ -16,8 +16,8 @@ Grid.CHUNK_TILES = 32
 
 -- Unconditional safety bound on the half-extent visible_chunk_range reports.
 -- No normal-view zoom comes near it; the cap keeps draw_player_highlight's
--- work bounded if player.zoom goes small anyway -- chart view, or a mod that
--- raises the zoom-out limit.
+-- work bounded if player.zoom goes small anyway, as in chart view or with a mod
+-- that raises the zoom-out limit.
 local MAX_HALF_EXTENT_TILES = 64 * Grid.CHUNK_TILES
 
 --- Returns the inclusive chunk-coordinate bounding box on screen for a player.

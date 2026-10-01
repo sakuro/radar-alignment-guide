@@ -88,7 +88,7 @@ end
 
 --- Build a fake radar ghost. Same shape as factorio.radar but type
 --- "entity-ghost", with the coverage accessor under ghost_prototype and no
---- plain `prototype` -- so code that wrongly reads entity.prototype on a ghost
+--- plain `prototype`, so code that wrongly reads entity.prototype on a ghost
 --- fails loudly in tests.
 function factorio.radar_ghost(opts)
   local ghost = factorio.radar(opts)
