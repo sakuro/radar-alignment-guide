@@ -1,16 +1,26 @@
 local factorio = require("spec.support.factorio")
 local Anchor = require("lib.anchor")
+local Notice = require("lib.notice")
+
+local SETTER = { name = "setter", valid = true }
+local ALICE = { "multiplayer.player-fallback", "alice" }
+local SETTER_NAME = { "multiplayer.player-fallback", SETTER.name }
+
+local function set_anchor(radar)
+  Anchor.set(radar, SETTER)
+end
 
 describe("Anchor", function()
   before_each(function()
     factorio.reset()
+    Notice.init()
     Anchor.init()
   end)
 
   describe("set / replace / clear", function()
     it("stores one record per scope and leaves nothing behind after clear", function()
       local first = factorio.radar({ unit_number = 10 })
-      Anchor.set(first)
+      set_anchor(first)
 
       local record = storage.anchors[1][1]
       assert.equals(first, record.radar)
@@ -18,7 +28,7 @@ describe("Anchor", function()
       assert.is_number(record.marker_render_id)
 
       local second = factorio.radar({ unit_number = 20 })
-      Anchor.set(second)
+      set_anchor(second)
 
       assert.equals(second, storage.anchors[1][1].radar)
       assert.equals(20, storage.anchors[1][1].useful_id)
@@ -34,7 +44,7 @@ describe("Anchor", function()
 
     it("reaps a record whose radar went invalid and destroys its marker", function()
       local radar = factorio.radar({ unit_number = 10 })
-      Anchor.set(radar)
+      set_anchor(radar)
       local render_id = storage.anchors[1][1].marker_render_id
       radar.valid = false
 
@@ -56,8 +66,66 @@ describe("Anchor", function()
       assert.equals(1, #factorio.printed)
     end)
 
+    it("names the building player when auto-designating", function()
+      local radar = factorio.radar({ unit_number = 5 })
+      local player = factorio.player({ index = 1, name = "alice" })
+
+      Anchor.on_built(radar, player)
+
+      assert.same(
+        { "radar-alignment-guide.anchor-auto-set-by-player-message", ALICE, radar.gps_tag },
+        factorio.printed[1]
+      )
+    end)
+
+    it("does not show the flying text when the builder turned hints off", function()
+      set_anchor(factorio.radar({ unit_number = 1, range = 3 }))
+      local player = factorio.player({ index = 1 })
+      factorio.show_hints = false
+
+      Anchor.on_built(factorio.radar({ unit_number = 2, range = 5 }), player)
+
+      assert.same({}, factorio.flying_text)
+    end)
+
+    it("alerts the last user when a radar built without a player out-ranges the anchor", function()
+      set_anchor(factorio.radar({ unit_number = 1, range = 3 }))
+      local orderer = factorio.player({ index = 1 })
+      local radar = factorio.radar({ unit_number = 2, range = 5, last_user = orderer })
+
+      Anchor.on_built(radar, nil)
+
+      assert.equals(1, #orderer.alerts)
+      assert.equals(radar, orderer.alerts[1].entity)
+      assert.same({ "radar-alignment-guide.anchor-outranges-alert" }, orderer.alerts[1].message)
+      assert.same({}, factorio.flying_text)
+    end)
+
+    it("does not alert a last user who turned hints off or is offline", function()
+      set_anchor(factorio.radar({ unit_number = 1, range = 3 }))
+      local offline = factorio.player({ index = 1, connected = false })
+      Anchor.on_built(factorio.radar({ unit_number = 2, range = 5, last_user = offline }), nil)
+      local online = factorio.player({ index = 2 })
+      factorio.show_hints = false
+      Anchor.on_built(factorio.radar({ unit_number = 3, range = 5, last_user = online }), nil)
+
+      assert.same({}, offline.alerts)
+      assert.same({}, online.alerts)
+    end)
+
+    it("removes wider-coverage alerts once the anchor changes", function()
+      set_anchor(factorio.radar({ unit_number = 1, range = 3 }))
+      local orderer = factorio.player({ index = 1 })
+      local wider = factorio.radar({ unit_number = 2, range = 5, last_user = orderer })
+      Anchor.on_built(wider, nil)
+
+      set_anchor(wider)
+
+      assert.same({}, orderer.alerts)
+    end)
+
     it("warns the builder when the new radar out-ranges the anchor", function()
-      Anchor.set(factorio.radar({ unit_number = 1, range = 3 }))
+      set_anchor(factorio.radar({ unit_number = 1, range = 3 }))
       local player = factorio.player({ index = 1 })
 
       Anchor.on_built(factorio.radar({ unit_number = 2, range = 5 }), player)
@@ -67,7 +135,7 @@ describe("Anchor", function()
     end)
 
     it("does not warn when the new radar's range is equal or smaller", function()
-      Anchor.set(factorio.radar({ unit_number = 1, range = 5 }))
+      set_anchor(factorio.radar({ unit_number = 1, range = 5 }))
       local player = factorio.player({ index = 1 })
 
       Anchor.on_built(factorio.radar({ unit_number = 2, range = 5 }), player)
@@ -77,7 +145,7 @@ describe("Anchor", function()
     end)
 
     it("does not warn when there is no building player", function()
-      Anchor.set(factorio.radar({ unit_number = 1, range = 3 }))
+      set_anchor(factorio.radar({ unit_number = 1, range = 3 }))
 
       assert.has_no.errors(function()
         Anchor.on_built(factorio.radar({ unit_number = 2, range = 5 }), nil)
@@ -87,13 +155,13 @@ describe("Anchor", function()
     end)
 
     it("warns the builder when a radar ghost out-ranges the anchor", function()
-      Anchor.set(factorio.radar({ unit_number = 1, range = 3 }))
+      set_anchor(factorio.radar({ unit_number = 1, range = 3 }))
       local player = factorio.player({ index = 1 })
       local ghost = factorio.radar_ghost({ unit_number = 2, range = 5, position = { x = 7, y = 9 } })
 
       Anchor.on_built(ghost, player)
 
-      assert.same({ "radar-alignment-guide.anchor-outranges-flying-text" }, factorio.flying_text[1].text)
+      assert.same({ "radar-alignment-guide.anchor-outranges-ghost-flying-text" }, factorio.flying_text[1].text)
       assert.same({ x = 7, y = 9 }, factorio.flying_text[1].position)
       assert.equals(1, #factorio.flying_text)
     end)
@@ -109,7 +177,7 @@ describe("Anchor", function()
     end)
 
     it("does not warn for a radar ghost with equal or smaller range", function()
-      Anchor.set(factorio.radar({ unit_number = 1, range = 5 }))
+      set_anchor(factorio.radar({ unit_number = 1, range = 5 }))
       local player = factorio.player({ index = 1 })
 
       Anchor.on_built(factorio.radar_ghost({ unit_number = 2, range = 5 }), player)
@@ -120,7 +188,7 @@ describe("Anchor", function()
     end)
 
     it("warns at most once per player per tick", function()
-      Anchor.set(factorio.radar({ unit_number = 1, range = 3 }))
+      set_anchor(factorio.radar({ unit_number = 1, range = 3 }))
       local player = factorio.player({ index = 1 })
 
       Anchor.on_built(factorio.radar_ghost({ unit_number = 2, range = 5 }), player)
@@ -133,18 +201,80 @@ describe("Anchor", function()
     end)
   end)
 
+  describe("on_entity_died / on_mined", function()
+    it("clears the anchor and warns the force when it dies", function()
+      local radar = factorio.radar({ unit_number = 10, gps_tag = "[gps=1,2]" })
+      set_anchor(radar)
+      factorio.printed = {}
+
+      Anchor.on_entity_died(radar)
+
+      assert.is_nil(storage.anchors[1][1])
+      assert.same({ "radar-alignment-guide.anchor-died-message", "[gps=1,2]" }, factorio.printed[1])
+      assert.same(Notice.WARNING_PRINT_SETTINGS, factorio.printed_settings[1])
+    end)
+
+    it("names the player who mined the anchor", function()
+      local radar = factorio.radar({ unit_number = 10, gps_tag = "[gps=1,2]" })
+      set_anchor(radar)
+      factorio.printed = {}
+
+      Anchor.on_mined(radar, factorio.player({ index = 1, name = "alice" }))
+
+      assert.is_nil(storage.anchors[1][1])
+      assert.same({ "radar-alignment-guide.anchor-mined-by-player-message", ALICE, "[gps=1,2]" }, factorio.printed[1])
+      assert.same(Notice.WARNING_PRINT_SETTINGS, factorio.printed_settings[1])
+    end)
+
+    it("reports mining without a player (robot, platform) without a name", function()
+      local radar = factorio.radar({ unit_number = 10, gps_tag = "[gps=1,2]" })
+      set_anchor(radar)
+      factorio.printed = {}
+
+      Anchor.on_mined(radar, nil)
+
+      assert.same({ "radar-alignment-guide.anchor-mined-message", "[gps=1,2]" }, factorio.printed[1])
+    end)
+
+    it("ignores a radar that is not the anchor", function()
+      local anchor = factorio.radar({ unit_number = 10 })
+      set_anchor(anchor)
+      factorio.printed = {}
+
+      Anchor.on_entity_died(factorio.radar({ unit_number = 11 }))
+      Anchor.on_mined(factorio.radar({ unit_number = 12 }), nil)
+
+      assert.equals(anchor, storage.anchors[1][1].radar)
+      assert.same({}, factorio.printed)
+    end)
+
+    it("leaves nothing for the later on_object_destroyed to report", function()
+      local radar = factorio.radar({ unit_number = 10 })
+      set_anchor(radar)
+      Anchor.on_entity_died(radar)
+      factorio.printed = {}
+
+      Anchor.on_object_destroyed({ useful_id = 10 })
+
+      assert.same({}, factorio.printed)
+    end)
+  end)
+
   describe("on_object_destroyed", function()
-    it("clears the scope whose record matches the useful_id", function()
-      Anchor.set(factorio.radar({ unit_number = 10 }))
+    it("clears the scope whose record matches the useful_id and warns the force", function()
+      set_anchor(factorio.radar({ unit_number = 10, gps_tag = "[gps=1,2]" }))
+      factorio.printed = {}
 
       Anchor.on_object_destroyed({ useful_id = 10 })
 
       assert.is_nil(storage.anchors[1][1])
+      assert.same({ "radar-alignment-guide.anchor-lost-message", "[gps=1,2]" }, factorio.printed[1])
+      assert.same(Notice.WARNING_PRINT_SETTINGS, factorio.printed_settings[1])
     end)
 
     it("ignores a useful_id no record holds (stale late event)", function()
-      Anchor.set(factorio.radar({ unit_number = 10 }))
-      Anchor.set(factorio.radar({ unit_number = 20 })) -- replaces scope 1,1
+      set_anchor(factorio.radar({ unit_number = 10 }))
+      set_anchor(factorio.radar({ unit_number = 20 })) -- replaces scope 1,1
 
       Anchor.on_object_destroyed({ useful_id = 10 })
 
@@ -157,7 +287,7 @@ describe("Anchor", function()
     it("moves a source anchor into an empty destination scope and rebuilds its visuals", function()
       factorio.show_map_tag = true
       local radar = factorio.radar({ unit_number = 10, force_index = 1 })
-      Anchor.set(radar)
+      set_anchor(radar)
       local old_marker_id = storage.anchors[1][1].marker_render_id
 
       radar.force = factorio.force({ index = 2 })
@@ -175,8 +305,8 @@ describe("Anchor", function()
     it("keeps the destination's anchor when both forces have one on the same surface", function()
       local source_radar = factorio.radar({ unit_number = 10, force_index = 1 })
       local dest_radar = factorio.radar({ unit_number = 20, force_index = 2 })
-      Anchor.set(source_radar)
-      Anchor.set(dest_radar)
+      set_anchor(source_radar)
+      set_anchor(dest_radar)
       local source_marker_id = storage.anchors[1][1].marker_render_id
 
       source_radar.force = factorio.force({ index = 2 })
@@ -190,8 +320,8 @@ describe("Anchor", function()
     it("merges per surface", function()
       local surface1_radar = factorio.radar({ unit_number = 10, force_index = 1, surface_index = 1 })
       local surface2_radar = factorio.radar({ unit_number = 20, force_index = 2, surface_index = 2 })
-      Anchor.set(surface1_radar)
-      Anchor.set(surface2_radar)
+      set_anchor(surface1_radar)
+      set_anchor(surface2_radar)
 
       surface1_radar.force = factorio.force({ index = 2 })
       Anchor.on_forces_merged(1, 2)
@@ -203,7 +333,7 @@ describe("Anchor", function()
 
     it("is a no-op when the source force has no anchors", function()
       local dest_radar = factorio.radar({ unit_number = 20, force_index = 2 })
-      Anchor.set(dest_radar)
+      set_anchor(dest_radar)
 
       Anchor.on_forces_merged(3, 2)
 
@@ -214,7 +344,7 @@ describe("Anchor", function()
     it("tells the destination force a merged anchor was set", function()
       local radar = factorio.radar({ unit_number = 10, force_index = 1 })
       radar.gps_tag = "SRC"
-      Anchor.set(radar)
+      set_anchor(radar)
       radar.force = factorio.force({ index = 2 })
       factorio.printed = {}
 
@@ -228,8 +358,8 @@ describe("Anchor", function()
       source_radar.gps_tag = "SRC"
       local dest_radar = factorio.radar({ unit_number = 20, force_index = 2 })
       dest_radar.gps_tag = "DST"
-      Anchor.set(source_radar)
-      Anchor.set(dest_radar)
+      set_anchor(source_radar)
+      set_anchor(dest_radar)
       source_radar.force = factorio.force({ index = 2 })
       factorio.printed = {}
 
@@ -239,7 +369,7 @@ describe("Anchor", function()
     end)
 
     it("prints nothing when the source force has no anchors", function()
-      Anchor.set(factorio.radar({ unit_number = 20, force_index = 2 }))
+      set_anchor(factorio.radar({ unit_number = 20, force_index = 2 }))
       factorio.printed = {}
 
       Anchor.on_forces_merged(3, 2)
@@ -266,30 +396,31 @@ describe("Anchor", function()
     end)
 
     it("designates the radar the player points at when it is not the anchor", function()
-      local radar = factorio.radar({ unit_number = 10 })
-      factorio.player({ index = 1, selected = radar })
+      local radar = factorio.radar({ unit_number = 10, gps_tag = "[gps=1,2]" })
+      factorio.player({ index = 1, name = "alice", selected = radar })
 
       Anchor.on_toggle(1)
 
       assert.equals(radar, storage.anchors[1][1].radar)
+      assert.same({ "radar-alignment-guide.anchor-set-message", ALICE, "[gps=1,2]" }, factorio.printed[1])
     end)
 
     it("clears the anchor when the player points at the current anchor radar", function()
-      local radar = factorio.radar({ unit_number = 10 })
-      Anchor.set(radar)
-      factorio.player({ index = 1, selected = radar })
+      local radar = factorio.radar({ unit_number = 10, gps_tag = "[gps=1,2]" })
+      set_anchor(radar)
+      factorio.player({ index = 1, name = "alice", selected = radar })
       factorio.printed = {}
 
       Anchor.on_toggle(1)
 
       assert.is_nil(storage.anchors[1][1])
-      assert.same({ "radar-alignment-guide.anchor-cleared-message" }, factorio.printed[1])
+      assert.same({ "radar-alignment-guide.anchor-cleared-message", ALICE, "[gps=1,2]" }, factorio.printed[1])
     end)
   end)
 
   describe("on_setting_changed", function()
     it("refreshes chart tags when the map-tag setting changed", function()
-      Anchor.set(factorio.radar({ unit_number = 10 }))
+      set_anchor(factorio.radar({ unit_number = 10 }))
       factorio.show_map_tag = true
 
       Anchor.on_setting_changed("radar-alignment-guide-show-map-tag")
@@ -298,7 +429,7 @@ describe("Anchor", function()
     end)
 
     it("ignores other settings", function()
-      Anchor.set(factorio.radar({ unit_number = 10 }))
+      set_anchor(factorio.radar({ unit_number = 10 }))
       factorio.show_map_tag = true
 
       Anchor.on_setting_changed("some-other-setting")
@@ -311,6 +442,7 @@ describe("Anchor", function()
     it("adopts one radar per (force, surface) with radars and no anchor, and notifies the force", function()
       factorio.world_radar({ unit_number = 1, force_index = 1, surface_index = 1 })
       factorio.world_radar({ unit_number = 2, force_index = 1, surface_index = 1 })
+      local player = factorio.player({ index = 1 })
 
       Anchor.bootstrap()
 
@@ -319,22 +451,35 @@ describe("Anchor", function()
       assert.is_true(record.radar.unit_number == 1 or record.radar.unit_number == 2)
       assert.is_number(record.useful_id)
       assert.is_number(record.marker_render_id)
-      assert.same({ "radar-alignment-guide.anchor-bootstrap-message", record.radar.gps_tag }, factorio.printed[1])
-      assert.equals(1, #factorio.printed)
+      assert.same({ "radar-alignment-guide.anchor-bootstrap-message", record.radar.gps_tag }, player.printed[1].message)
+      assert.equals(1, #player.printed)
       assert.is_true(storage.bootstrapped)
+    end)
+
+    it("queues the notice for an offline player until they join", function()
+      factorio.world_radar({ unit_number = 1, force_index = 1, surface_index = 1, gps_tag = "[gps=1]" })
+      local player = factorio.player({ index = 1, connected = false })
+
+      Anchor.bootstrap()
+
+      assert.same({}, player.printed)
+      Notice.on_player_joined_game(1)
+      assert.same({ "radar-alignment-guide.anchor-bootstrap-message", "[gps=1]" }, player.printed[1].message)
+      assert.is_nil(storage.pending_notices[1])
     end)
 
     it("sends one message per force naming every adopted anchor", function()
       factorio.world_radar({ unit_number = 1, force_index = 1, surface_index = 1, gps_tag = "[gps=1]" })
       factorio.world_radar({ unit_number = 2, force_index = 1, surface_index = 2, gps_tag = "[gps=2]" })
+      local player = factorio.player({ index = 1 })
 
       Anchor.bootstrap()
 
       assert.is_not_nil(storage.anchors[1][1])
       assert.is_not_nil(storage.anchors[1][2])
-      assert.equals(1, #factorio.printed)
-      assert.equals("radar-alignment-guide.anchor-bootstrap-message", factorio.printed[1][1])
-      local locations = factorio.printed[1][2]
+      assert.equals(1, #player.printed)
+      assert.equals("radar-alignment-guide.anchor-bootstrap-message", player.printed[1].message[1])
+      local locations = player.printed[1].message[2]
       assert.is_truthy(locations:find("[gps=1]", 1, true))
       assert.is_truthy(locations:find("[gps=2]", 1, true))
     end)
@@ -373,14 +518,14 @@ describe("Anchor", function()
 
     it("skips a (force, surface) that already has an anchor", function()
       local existing = factorio.world_radar({ unit_number = 1, force_index = 1, surface_index = 1 })
-      Anchor.set(existing)
+      set_anchor(existing)
       factorio.world_radar({ unit_number = 2, force_index = 1, surface_index = 1 })
 
       Anchor.bootstrap()
 
       assert.equals(existing, storage.anchors[1][1].radar)
       assert.equals(1, #factorio.printed)
-      assert.same({ "radar-alignment-guide.anchor-set-message", existing.gps_tag }, factorio.printed[1])
+      assert.same({ "radar-alignment-guide.anchor-set-message", SETTER_NAME, existing.gps_tag }, factorio.printed[1])
     end)
 
     it("sets the flag and prints nothing when there are no radars", function()

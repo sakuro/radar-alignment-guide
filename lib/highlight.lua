@@ -1,5 +1,6 @@
 local Grid = require("lib.grid")
 local Anchor = require("lib.anchor")
+local Notice = require("lib.notice")
 
 local Highlight = {}
 
@@ -99,6 +100,26 @@ local function highlight_state_changed(a, b)
     or ar.bottom ~= br.bottom
 end
 
+--- Tells the player why no grid shows. With no radar of their force on the
+--- surface there is nothing to fix (the first radar built becomes the anchor);
+--- with radars present an anchor was lost or cleared, possibly while the player
+--- was away, so they get the steps to designate one.
+local function show_no_anchor_notice(player)
+  local has_radar = player.surface.count_entities_filtered({ type = "radar", force = player.force, limit = 1 }) > 0
+  if has_radar then
+    Notice.flying_text(player, {
+      text = { "radar-alignment-guide.no-anchor-warning" },
+      create_at_cursor = true,
+      color = Notice.WARNING_COLOR,
+    })
+  else
+    Notice.flying_text(player, {
+      text = { "radar-alignment-guide.no-anchor-first-radar-flying-text" },
+      create_at_cursor = true,
+    })
+  end
+end
+
 --- `state` (from current_highlight_state) is optional; callers that already
 --- computed it for the change-detection check (Highlight.on_tick) pass it
 --- through to avoid recomputing Grid.visible_chunk_range.
@@ -109,10 +130,7 @@ local function draw_player_highlight(player, state)
   if not anchor then
     if not storage.warned_players[player.index] then
       storage.warned_players[player.index] = true
-      player.create_local_flying_text({
-        text = { "radar-alignment-guide.no-anchor-warning" },
-        create_at_cursor = true,
-      })
+      show_no_anchor_notice(player)
     end
     storage.highlight_last_state[player.index] = state
     return

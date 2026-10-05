@@ -1,4 +1,15 @@
 ---------------------------------------------------------------------------------------------------
+Version: Unreleased
+  Features:
+    - Added the "Show hints" per-player setting to turn off the mod's flying texts and alerts. Chat notifications are always shown.
+    - When a robot builds a radar with wider coverage than the anchor, the player who placed its ghost gets an alert.
+  Changes:
+    - Anchor set and clear messages now name the player, and the clear message shows where the anchor was.
+    - Losing the anchor now says whether it was destroyed or removed (and by whom), shows where it was, and is shown in a warning color.
+    - The missing-anchor flying text now explains that the first radar built becomes the anchor, or how to designate one when radars already exist.
+    - The wider-coverage flying text for a radar ghost now says the radar can be made the anchor once built.
+    - The notices shown when the mod is added to a save or its saved data is reset now reach players who were offline at the time, on their next join.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.0
 Date: 2026-09-03
   Changes:

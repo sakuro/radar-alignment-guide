@@ -1,6 +1,9 @@
+local Notice = require("lib.notice")
+
 local Anchor = {}
 
 local MAP_TAG_SETTING = "radar-alignment-guide-show-map-tag"
+local OUTRANGES_ALERT = { "radar-alignment-guide.anchor-outranges-alert" }
 
 local function ensure_storage()
   storage.anchors = storage.anchors or {}
@@ -93,6 +96,18 @@ local function create_chart_tag(record, radar)
   end
 end
 
+--- Wider-coverage alerts compare against the anchor, so they go stale once it
+--- is replaced or gone.
+local function clear_outranges_alerts(force_index, surface_index)
+  local force = game.forces[force_index]
+  if not (force and force.valid) then
+    return
+  end
+  for _, player in pairs(force.players) do
+    player.remove_alert({ type = defines.alert_type.custom, surface = surface_index, message = OUTRANGES_ALERT })
+  end
+end
+
 --- Drop the anchor record for (force_index, surface_index), destroying its
 --- marker and chart tag. Safe to call when there is no record.
 local function forget(force_index, surface_index)
@@ -103,6 +118,7 @@ local function forget(force_index, surface_index)
   end
   destroy_marker(record)
   destroy_chart_tag(record)
+  clear_outranges_alerts(force_index, surface_index)
   by_surface[surface_index] = nil
 end
 
@@ -147,7 +163,9 @@ local function designate(radar)
   -- went invalid without an on_object_destroyed (no-op when there is no record).
   forget(force_index, surface_index)
   local _, useful_id = script.register_on_object_destroyed(radar)
-  local record = { radar = radar, useful_id = useful_id }
+  -- gps_tag is kept so the anchor can still be located in the message sent
+  -- after the radar itself is gone.
+  local record = { radar = radar, useful_id = useful_id, gps_tag = radar.gps_tag }
   storage.anchors[force_index] = storage.anchors[force_index] or {}
   storage.anchors[force_index][surface_index] = record
   create_marker(record, radar)
@@ -158,9 +176,10 @@ end
 --- Designates the radar as the anchor for its force and surface, announcing it
 --- to the force. No-op if the radar is already the anchor.
 ---@param radar LuaEntity
-function Anchor.set(radar)
+---@param player LuaPlayer  who designated it
+function Anchor.set(radar, player)
   if designate(radar) then
-    radar.force.print({ "radar-alignment-guide.anchor-set-message", radar.gps_tag })
+    radar.force.print({ "radar-alignment-guide.anchor-set-message", Notice.player_name(player), radar.gps_tag })
   end
 end
 
@@ -171,12 +190,51 @@ function Anchor.clear(force_index, surface_index)
   forget(force_index, surface_index)
 end
 
---- Clears the anchor and notifies the force when the destroyed object was an
---- anchor radar; wire to defines.events.on_object_destroyed.
+--- Forgets the anchor of the force and surface the entity was on, and warns the
+--- force with the message built from the anchor's gps_tag. No-op unless the
+--- entity is the anchor.
+local function lose(entity, build_message)
+  if not Anchor.is_anchor(entity) then
+    return
+  end
+  local force = entity.force
+  local record = get_record(force.index, entity.surface.index)
+  forget(force.index, entity.surface.index)
+  force.print(build_message(record.gps_tag), Notice.WARNING_PRINT_SETTINGS)
+end
+
+--- Clears the anchor and warns the force when the anchor radar died; wire to
+--- defines.events.on_entity_died.
+---@param entity LuaEntity
+function Anchor.on_entity_died(entity)
+  lose(entity, function(gps_tag)
+    return { "radar-alignment-guide.anchor-died-message", gps_tag }
+  end)
+end
+
+--- Clears the anchor and warns the force when the anchor radar was mined; wire
+--- to defines.events.on_player_mined_entity, on_robot_mined_entity and
+--- on_space_platform_mined_entity.
+---@param entity LuaEntity
+---@param player LuaPlayer|nil  the miner; nil for robots and platforms
+function Anchor.on_mined(entity, player)
+  lose(entity, function(gps_tag)
+    if player and player.valid then
+      return { "radar-alignment-guide.anchor-mined-by-player-message", Notice.player_name(player), gps_tag }
+    end
+    return { "radar-alignment-guide.anchor-mined-message", gps_tag }
+  end)
+end
+
+--- Clears the anchor and warns the force when an anchor radar went away by any
+--- other means (script destruction, surface deletion); wire to
+--- defines.events.on_object_destroyed.
 ---
---- The event carries only numeric ids, so the affected scope is found by
---- scanning for a record whose useful_id matches; a stale late event for a
---- replaced anchor matches nothing and is ignored.
+--- Death and mining are reported earlier by their own events, which forget the
+--- record, so their late on_object_destroyed matches nothing. The event carries
+--- only numeric ids, so the affected scope is found by scanning for a record
+--- whose useful_id matches; a stale late event for a replaced anchor matches
+--- nothing and is ignored.
 ---@param event EventData.on_object_destroyed
 function Anchor.on_object_destroyed(event)
   for force_index, by_surface in pairs(storage.anchors) do
@@ -185,7 +243,7 @@ function Anchor.on_object_destroyed(event)
         forget(force_index, surface_index)
         local force = game.forces[force_index]
         if force and force.valid then
-          force.print({ "radar-alignment-guide.anchor-destroyed-message" })
+          force.print({ "radar-alignment-guide.anchor-lost-message", record.gps_tag }, Notice.WARNING_PRINT_SETTINGS)
         end
         return
       end
@@ -252,16 +310,47 @@ local function coverage_range(entity)
   return entity.prototype.get_max_distance_of_nearby_sector_revealed(entity.quality)
 end
 
---- Auto-designates a newly built radar as the anchor, or warns the builder when
---- it outranges the existing anchor.
+--- Shows the builder a flying text at a radar or ghost that covers more area
+--- than the anchor. A ghost cannot be designated until built, so it gets a
+--- wording that says so.
+local function warn_builder(entity, player)
+  if storage.anchor_build_warned[player.index] == game.tick then
+    return
+  end
+  storage.anchor_build_warned[player.index] = game.tick
+  local key = entity.type == "entity-ghost" and "anchor-outranges-ghost-flying-text" or "anchor-outranges-flying-text"
+  Notice.flying_text(player, {
+    text = { "radar-alignment-guide." .. key },
+    position = entity.position,
+  })
+end
+
+--- Adds an alert at a radar that covers more area than the anchor, for the
+--- player who ordered it when it was built without them present (typically a
+--- robot reviving their ghost). They may be far away, so a flying text would go
+--- unseen; the alert stays until the anchor changes (see clear_outranges_alerts).
+local function alert_orderer(entity)
+  local player = entity.last_user
+  if not (player and player.valid and player.connected) then
+    return
+  end
+  if not Notice.hints_enabled(player) then
+    return
+  end
+  player.add_custom_alert(entity, { type = "entity", name = entity.name }, OUTRANGES_ALERT, true)
+end
+
+--- Auto-designates a newly built radar as the anchor, or tells the player behind
+--- it when it outranges the existing anchor.
 ---
 --- For a real radar with no anchor yet on its force/surface, auto-designates it
---- and announces it to the force. For a ghost, or when an anchor already exists:
---- if a building player is present and the new radar/ghost covers more area than
---- the anchor, shows them a flying text, at most once per player per tick,
---- since one blueprint stamp fires this once per radar ghost on the same tick. A
---- narrower radar leaves a gap already visible on the grid and re-anchoring to it
---- would only tighten the grid, so that case is left unwarned. A ghost is never
+--- and announces it to the force. For a ghost, or when an anchor already exists,
+--- a radar/ghost covering more area than the anchor is reported: to a building
+--- player with a flying text, at most once per player per tick, since one
+--- blueprint stamp fires this once per radar ghost on the same tick; without a
+--- building player, to the radar's last user with an alert. A narrower radar
+--- leaves a gap already visible on the grid and re-anchoring to it would only
+--- tighten the grid, so that case is left unreported. A ghost is never
 --- auto-designated as the anchor (it cannot be registered for
 --- on_object_destroyed); when a bot revives it, on_robot_built_entity handles
 --- the real entity.
@@ -269,36 +358,41 @@ end
 ---@param player LuaPlayer|nil  the builder; nil for robot and script builds
 function Anchor.on_built(entity, player)
   local is_ghost = entity.type == "entity-ghost"
+  local builder = player and player.valid and player or nil
   local current = Anchor.get(entity.force.index, entity.surface.index)
   if not current then
     if is_ghost then
       return
     end
     designate(entity)
-    entity.force.print({ "radar-alignment-guide.anchor-auto-set-message", entity.gps_tag })
+    if builder then
+      entity.force.print({
+        "radar-alignment-guide.anchor-auto-set-by-player-message",
+        Notice.player_name(builder),
+        entity.gps_tag,
+      })
+    else
+      entity.force.print({ "radar-alignment-guide.anchor-auto-set-message", entity.gps_tag })
+    end
     return
   end
-  if not (player and player.valid) then
+  if coverage_range(entity) <= coverage_range(current) then
     return
   end
-  if storage.anchor_build_warned[player.index] == game.tick then
-    return
-  end
-  if coverage_range(entity) > coverage_range(current) then
-    storage.anchor_build_warned[player.index] = game.tick
-    player.create_local_flying_text({
-      text = { "radar-alignment-guide.anchor-outranges-flying-text" },
-      position = entity.position,
-    })
+  if builder then
+    warn_builder(entity, builder)
+  elseif not is_ghost then
+    alert_orderer(entity)
   end
 end
 
 --- One-time pass for a save the mod was just added to: adopt an existing radar
 --- as the anchor for each (force, surface) that has radars but no anchor, and
---- tell each affected force once. Gated by storage.bootstrapped so it runs once.
---- A save that already ran it keeps the flag even across a migration reset
---- (control.lua preserves it), so wiped anchors are re-designated by hand via
---- the migration-reset notice, not silently re-adopted here.
+--- tell each affected force's players once (on their next join if offline).
+--- Gated by storage.bootstrapped so it runs once. A save that already ran it
+--- keeps the flag even across a migration reset (control.lua preserves it), so
+--- wiped anchors are re-designated by hand via the migration-reset notice, not
+--- silently re-adopted here.
 function Anchor.bootstrap()
   if storage.bootstrapped then
     return
@@ -337,7 +431,7 @@ function Anchor.bootstrap()
         -- One line per force. Each adopted anchor's gps_tag stays a clickable
         -- link inside the joined string, but the "how to change it" hint is
         -- shown once instead of repeating per surface.
-        force.print({
+        Notice.deliver(force.players, {
           "radar-alignment-guide.anchor-bootstrap-message",
           table.concat(adopted, " "),
         })
@@ -357,9 +451,9 @@ function Anchor.on_toggle(player_index)
   local radar = player.selected
   if Anchor.is_anchor(radar) then
     Anchor.clear(radar.force.index, radar.surface.index)
-    radar.force.print({ "radar-alignment-guide.anchor-cleared-message" })
+    radar.force.print({ "radar-alignment-guide.anchor-cleared-message", Notice.player_name(player), radar.gps_tag })
   else
-    Anchor.set(radar)
+    Anchor.set(radar, player)
   end
 end
 

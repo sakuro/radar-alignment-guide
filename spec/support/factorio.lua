@@ -2,15 +2,55 @@
 --- module under test, and call `factorio.reset()` in `before_each`.
 local factorio = {}
 
+--- Players registered by factorio.player whose force index matches, in index
+--- order.
+local function players_of_force(index)
+  local result = {}
+  for _, player in pairs(factorio._players) do
+    if player.force.index == index then
+      result[#result + 1] = player
+    end
+  end
+  table.sort(result, function(a, b)
+    return a.index < b.index
+  end)
+  return result
+end
+
+local function chart_tag()
+  if not factorio.show_map_tag then
+    return nil
+  end
+  local tag = { valid = true }
+  function tag.destroy()
+    tag.valid = false
+  end
+  return tag
+end
+
+--- A fake force. `players` is computed on access from factorio.player
+--- registrations, so a player created after the force still belongs to it.
+local function new_force(index)
+  return setmetatable({
+    index = index,
+    valid = true,
+    print = function(message, print_settings)
+      table.insert(factorio.printed, message)
+      factorio.printed_settings[#factorio.printed] = print_settings
+    end,
+    add_chart_tag = chart_tag,
+  }, {
+    __index = function(_, key)
+      if key == "players" then
+        return players_of_force(index)
+      end
+    end,
+  })
+end
+
 local forces_metatable = {
   __index = function(_, index)
-    return {
-      index = index,
-      valid = true,
-      print = function(message)
-        table.insert(factorio.printed, message)
-      end,
-    }
+    return new_force(index)
   end,
 }
 
@@ -32,10 +72,12 @@ function factorio.reset()
   next_render_id = 0
   render_objects = {}
   factorio.printed = {}
+  factorio.printed_settings = {}
   factorio.registered = {}
   factorio._players = {}
   factorio.flying_text = {}
   factorio.show_map_tag = false
+  factorio.show_hints = true
   factorio._world = {}
   factorio._radar_prototype_names = { "radar" }
   _G.game.forces = setmetatable({}, forces_metatable)
@@ -46,23 +88,7 @@ end
 --- Build a fake force table.
 function factorio.force(opts)
   opts = opts or {}
-  return {
-    index = opts.index or 1,
-    valid = true,
-    print = function(message)
-      table.insert(factorio.printed, message)
-    end,
-    add_chart_tag = function()
-      if not factorio.show_map_tag then
-        return nil
-      end
-      local tag = { valid = true }
-      function tag.destroy()
-        tag.valid = false
-      end
-      return tag
-    end,
-  }
+  return new_force(opts.index or 1)
 end
 
 --- Build a fake radar entity usable with lib/anchor.lua.
@@ -82,7 +108,8 @@ function factorio.radar(opts)
     position = opts.position or { x = 0, y = 0 },
     surface = { index = opts.surface_index or 1 },
     force = factorio.force({ index = opts.force_index or 1 }),
-    gps_tag = "[gps=0,0]",
+    gps_tag = opts.gps_tag or "[gps=0,0]",
+    last_user = opts.last_user,
   }
 end
 
@@ -106,34 +133,18 @@ function factorio.world_force(index)
   if existing then
     return existing
   end
-  local force = {
-    index = index,
-    valid = true,
-    print = function(message)
-      table.insert(factorio.printed, message)
-    end,
-    add_chart_tag = function()
-      if not factorio.show_map_tag then
-        return nil
-      end
-      local tag = { valid = true }
-      function tag.destroy()
-        tag.valid = false
-      end
-      return tag
-    end,
-    get_entity_count = function(name)
-      local count = 0
-      for _, radars in pairs(factorio._world) do
-        for _, radar in ipairs(radars) do
-          if radar.force.index == index and radar.name == name then
-            count = count + 1
-          end
+  local force = new_force(index)
+  force.get_entity_count = function(name)
+    local count = 0
+    for _, radars in pairs(factorio._world) do
+      for _, radar in ipairs(radars) do
+        if radar.force.index == index and radar.name == name then
+          count = count + 1
         end
       end
-      return count
-    end,
-  }
+    end
+    return count
+  end
   _G.game.forces[index] = force
   return force
 end
@@ -145,8 +156,12 @@ function factorio.world_surface(index)
   if _G.game.surfaces[index] then
     return _G.game.surfaces[index]
   end
-  local surface = {
+  local surface
+  surface = {
     index = index,
+    count_entities_filtered = function(opts)
+      return #surface.find_entities_filtered(opts)
+    end,
     find_entities_filtered = function(opts)
       local matches = {}
       for _, radar in ipairs(factorio._world[index] or {}) do
@@ -200,17 +215,51 @@ function factorio.world_radar(opts)
   return radar
 end
 
---- Build a fake player and register it for game.get_player.
+--- Build a fake player and register it for game.get_player. `name = false`
+--- gives a player without a name (single-player, not logged in). Chat it receives
+--- goes to player.printed, alerts to player.alerts (a removal drops the matching
+--- entries).
 function factorio.player(opts)
   opts = opts or {}
+  local index = opts.index or 1
+  local name = "player" .. index
+  if opts.name == false then
+    name = nil
+  elseif opts.name then
+    name = opts.name
+  end
   local player = {
-    index = opts.index or 1,
+    index = index,
+    name = name,
     valid = opts.valid ~= false,
+    connected = opts.connected ~= false,
     selected = opts.selected,
-    create_local_flying_text = function(params)
-      table.insert(factorio.flying_text, params)
-    end,
+    force = factorio.force({ index = opts.force_index or 1 }),
+    surface = opts.surface or factorio.world_surface(1),
+    printed = {},
+    alerts = {},
   }
+  function player.create_local_flying_text(params)
+    table.insert(factorio.flying_text, params)
+  end
+  function player.print(message, print_settings)
+    table.insert(player.printed, { message = message, print_settings = print_settings })
+  end
+  function player.add_custom_alert(entity, icon, message, show_on_map)
+    table.insert(player.alerts, { entity = entity, icon = icon, message = message, show_on_map = show_on_map })
+  end
+  function player.remove_alert(filter)
+    local kept = {}
+    for _, alert in ipairs(player.alerts) do
+      local matches = filter.type == defines.alert_type.custom
+        and filter.surface == alert.entity.surface.index
+        and filter.message[1] == alert.message[1]
+      if not matches then
+        kept[#kept + 1] = alert
+      end
+    end
+    player.alerts = kept
+  end
   factorio._players[player.index] = player
   return player
 end
@@ -237,7 +286,16 @@ _G.rendering = {
   end,
 }
 
+_G.defines = {
+  alert_type = { custom = 8 },
+}
+
 _G.settings = {
+  get_player_settings = function()
+    return {
+      ["radar-alignment-guide-show-hints"] = { value = factorio.show_hints },
+    }
+  end,
   global = setmetatable({}, {
     __index = function(_, key)
       if key == "radar-alignment-guide-show-map-tag" then
@@ -253,6 +311,15 @@ _G.game = {
     return factorio._players[index]
   end,
 }
+
+-- game.players mirrors factorio._players, which reset() replaces.
+setmetatable(_G.game, {
+  __index = function(_, key)
+    if key == "players" then
+      return factorio._players
+    end
+  end,
+})
 
 _G.prototypes = {
   get_entity_filtered = function(_)

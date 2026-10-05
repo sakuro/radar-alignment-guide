@@ -29,10 +29,41 @@ describe("migrations[2] (five tables -> per-anchor records)", function()
   end)
 end)
 
+describe("migrations[3] (records keep gps_tag)", function()
+  it("copies the radar's gps_tag into each record", function()
+    local radar = { valid = true, gps_tag = "[gps=1,2]" }
+    local store = { anchors = { [1] = { [1] = { radar = radar, useful_id = 1 } } } }
+
+    migrations[3](store)
+
+    assert.equals("[gps=1,2]", store.anchors[1][1].gps_tag)
+  end)
+
+  it("drops a record whose radar is invalid and destroys its chart tag", function()
+    local tag = { valid = true }
+    function tag.destroy()
+      tag.valid = false
+    end
+    local store = { anchors = { [1] = { [1] = { radar = { valid = false }, useful_id = 1, chart_tag = tag } } } }
+
+    migrations[3](store)
+
+    assert.is_nil(store.anchors[1][1])
+    assert.is_false(tag.valid)
+  end)
+
+  it("is a no-op on a store with no anchor data", function()
+    local store = {}
+    migrations[3](store)
+    assert.same({}, store)
+  end)
+end)
+
 describe("Migration.apply", function()
   it("treats a nil schema_version as 1 and runs up to LATEST", function()
+    local radar = { valid = true, gps_tag = "[gps=1,2]" }
     local store = {
-      anchors = { [1] = { [1] = "R" } },
+      anchors = { [1] = { [1] = radar } },
       anchor_useful_ids = {},
       anchor_markers = {},
       anchor_chart_tags = {},
@@ -42,7 +73,8 @@ describe("Migration.apply", function()
 
     assert.is_true(ok)
     assert.equals(Migration.LATEST, store.schema_version)
-    assert.equals("R", store.anchors[1][1].radar)
+    assert.equals(radar, store.anchors[1][1].radar)
+    assert.equals("[gps=1,2]", store.anchors[1][1].gps_tag)
   end)
 
   it("is a no-op the second time", function()
