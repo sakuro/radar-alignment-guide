@@ -25,4 +25,23 @@ return {
     store.anchor_markers = nil
     store.anchor_chart_tags = nil
   end,
+  --- v3: each record also keeps its radar's gps_tag, so the anchor can be
+  --- located in the message sent after the radar is gone. A record whose radar
+  --- is already invalid has no gps_tag to take; it is dropped (Anchor.get
+  --- already treats it as absent), along with its chart tag. Its marker was
+  --- drawn on the radar and went with it.
+  [3] = function(store)
+    for _, by_surface in pairs(store.anchors or {}) do
+      for surface_index, record in pairs(by_surface) do
+        if record.radar and record.radar.valid then
+          record.gps_tag = record.radar.gps_tag
+        else
+          if record.chart_tag and record.chart_tag.valid then
+            record.chart_tag.destroy()
+          end
+          by_surface[surface_index] = nil
+        end
+      end
+    end
+  end,
 }

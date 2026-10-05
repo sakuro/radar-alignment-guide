@@ -2,8 +2,10 @@ local Anchor = require("lib.anchor")
 local Highlight = require("lib.highlight")
 local Migration = require("lib.migration")
 local migrations = require("lib.migrations")
+local Notice = require("lib.notice")
 
 local function init()
+  Notice.init()
   Anchor.init()
   Highlight.init()
 end
@@ -32,7 +34,7 @@ script.on_configuration_changed(function()
   Anchor.bootstrap()
   if storage.migration_reset then
     storage.migration_reset = nil
-    game.print({ "radar-alignment-guide.migration-reset-message" })
+    Notice.deliver(game.players, { "radar-alignment-guide.migration-reset-message" }, Notice.WARNING_PRINT_SETTINGS)
   end
 end)
 
@@ -65,6 +67,21 @@ script.on_event(defines.events.on_space_platform_built_entity, on_built, radar_f
 script.on_event(defines.events.script_raised_built, on_built, radar_filter)
 script.on_event(defines.events.script_raised_revive, on_built, radar_filter)
 
+script.on_event(defines.events.on_entity_died, function(event)
+  Anchor.on_entity_died(event.entity)
+end, radar_filter)
+
+script.on_event(defines.events.on_player_mined_entity, function(event)
+  Anchor.on_mined(event.entity, game.get_player(event.player_index))
+end, radar_filter)
+
+local function on_mined_without_player(event)
+  Anchor.on_mined(event.entity, nil)
+end
+
+script.on_event(defines.events.on_robot_mined_entity, on_mined_without_player, radar_filter)
+script.on_event(defines.events.on_space_platform_mined_entity, on_mined_without_player, radar_filter)
+
 script.on_event(defines.events.on_object_destroyed, Anchor.on_object_destroyed)
 
 script.on_event(defines.events.on_forces_merged, function(event)
@@ -81,6 +98,11 @@ end)
 
 script.on_event(defines.events.on_player_removed, function(event)
   Highlight.on_player_removed(event.player_index)
+  Notice.on_player_removed(event.player_index)
+end)
+
+script.on_event(defines.events.on_player_joined_game, function(event)
+  Notice.on_player_joined_game(event.player_index)
 end)
 
 script.on_event(defines.events.on_player_left_game, function(event)

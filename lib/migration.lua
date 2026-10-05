@@ -9,7 +9,7 @@ local Migration = {}
 --- Current storage schema version. Bump by 1 whenever the storage layout
 --- changes, and add a matching step to lib/migrations.lua. Independent of the
 --- mod's semver. Schema version 1 is the mod 0.5.0 layout.
-Migration.LATEST = 2
+Migration.LATEST = 3
 
 local function run_steps(store, steps)
   local from = store.schema_version or 1

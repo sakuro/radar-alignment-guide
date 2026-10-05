@@ -11,4 +11,10 @@ data:extend({
     setting_type = "runtime-global",
     default_value = false,
   },
+  {
+    type = "bool-setting",
+    name = "radar-alignment-guide-show-hints",
+    setting_type = "runtime-per-user",
+    default_value = true,
+  },
 })
