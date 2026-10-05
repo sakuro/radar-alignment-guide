@@ -286,11 +286,14 @@ function Anchor.on_forces_merged(source_index, destination_index)
   end
 end
 
---- Coverage radius in chunks for a radar entity or a radar ghost. For a ghost,
---- entity.prototype is the "entity-ghost" prototype, so the radar's own
---- prototype is reached via entity.ghost_prototype; entity.quality is the
+--- Returns the coverage radius in chunks of a radar or a radar ghost.
+---
+--- For a ghost, entity.prototype is the "entity-ghost" prototype, so the radar's
+--- own prototype is reached via entity.ghost_prototype; entity.quality is the
 --- quality it will be built at either way.
-local function coverage_range(entity)
+---@param entity LuaEntity  a radar or a radar ghost
+---@return uint
+function Anchor.coverage_range(entity)
   if entity.type == "entity-ghost" then
     return entity.ghost_prototype.get_max_distance_of_nearby_sector_revealed(entity.quality)
   end
@@ -364,7 +367,7 @@ function Anchor.on_built(entity, player)
     end
     return
   end
-  if coverage_range(entity) <= coverage_range(current) then
+  if Anchor.coverage_range(entity) <= Anchor.coverage_range(current) then
     return
   end
   if builder then

@@ -58,6 +58,9 @@ local function on_built(event)
   if entity and entity.valid then
     local player = event.player_index and game.get_player(event.player_index)
     Anchor.on_built(entity, player)
+    if entity.type == "radar" then
+      Highlight.request_redraw(entity.surface.index)
+    end
   end
 end
 
@@ -90,6 +93,7 @@ end)
 
 script.on_event(defines.events.on_runtime_mod_setting_changed, function(event)
   Anchor.on_setting_changed(event.setting)
+  Highlight.on_setting_changed(event.setting, event.player_index)
 end)
 
 script.on_event(defines.events.on_player_cursor_stack_changed, function(event)

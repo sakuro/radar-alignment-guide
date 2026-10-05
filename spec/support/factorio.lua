@@ -57,14 +57,27 @@ local forces_metatable = {
 local next_render_id
 local render_objects
 
-local function new_render_object()
+local function new_render_object(kind, params)
   next_render_id = next_render_id + 1
-  local object = { id = next_render_id, valid = true }
+  local object = { id = next_render_id, valid = true, kind = kind, params = params }
   function object.destroy()
     object.valid = false
   end
   render_objects[object.id] = object
   return object
+end
+
+--- Live render objects of the given kind ("sprite" or "rectangle"), in creation
+--- order.
+function factorio.live_render_objects(kind)
+  local result = {}
+  for id = 1, next_render_id do
+    local object = render_objects[id]
+    if object and object.valid and object.kind == kind then
+      result[#result + 1] = object
+    end
+  end
+  return result
 end
 
 function factorio.reset()
@@ -262,11 +275,11 @@ _G.script = {
 }
 
 _G.rendering = {
-  draw_sprite = function()
-    return new_render_object()
+  draw_sprite = function(params)
+    return new_render_object("sprite", params)
   end,
-  draw_rectangle = function()
-    return new_render_object()
+  draw_rectangle = function(params)
+    return new_render_object("rectangle", params)
   end,
   get_object_by_id = function(id)
     return render_objects[id]
@@ -277,6 +290,7 @@ _G.settings = {
   get_player_settings = function()
     return {
       ["radar-alignment-guide-show-hints"] = { value = factorio.show_hints },
+      ["radar-alignment-guide-highlight-color"] = { value = { r = 0, g = 0, b = 1, a = 0.1 } },
     }
   end,
   global = setmetatable({}, {
