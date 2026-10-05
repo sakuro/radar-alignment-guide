@@ -1,5 +1,6 @@
 ---------------------------------------------------------------------------------------------------
-Version: Unreleased
+Version: 0.7.0
+Date: 2026-10-05
   Features:
     - Added the "Show hints" per-player setting to turn off the mod's flying texts, alerts and warning icons. Chat notifications are always shown.
     - When a robot builds a radar with wider coverage than the anchor, the player who placed its ghost gets an alert.
