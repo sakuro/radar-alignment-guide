@@ -120,6 +120,42 @@ local function show_no_anchor_notice(player)
   end
 end
 
+--- Draws a blinking warning icon, like the game's own entity warnings, on each
+--- radar in the visible range that covers more area than the anchor, so the
+--- player can find radars worth re-anchoring to. The icons share the grid's
+--- lifetime: drawn and destroyed with it, and gone with their radar.
+local function draw_wider_radar_icons(player, anchor, range, render_ids)
+  if not Notice.hints_enabled(player) then
+    return
+  end
+  local anchor_range = Anchor.coverage_range(anchor)
+  local radars = player.surface.find_entities_filtered({
+    type = "radar",
+    force = player.force,
+    area = {
+      { range.left * Grid.CHUNK_TILES, range.top * Grid.CHUNK_TILES },
+      { (range.right + 1) * Grid.CHUNK_TILES, (range.bottom + 1) * Grid.CHUNK_TILES },
+    },
+  })
+  for _, radar in pairs(radars) do
+    if Anchor.coverage_range(radar) > anchor_range then
+      local render_object = rendering.draw_sprite({
+        sprite = "utility/warning_icon",
+        target = radar,
+        surface = player.surface,
+        players = { player },
+        -- The interval game alerts use.
+        blink_interval = 30,
+        -- The 64px sprite would span two tiles at scale 1.
+        x_scale = 0.5,
+        y_scale = 0.5,
+        render_layer = "entity-info-icon-above",
+      })
+      table.insert(render_ids, render_object.id)
+    end
+  end
+end
+
 --- `state` (from current_highlight_state) is optional; callers that already
 --- computed it for the change-detection check (Highlight.on_tick) pass it
 --- through to avoid recomputing Grid.visible_chunk_range.
@@ -159,6 +195,7 @@ local function draw_player_highlight(player, state)
       end
     end
   end
+  draw_wider_radar_icons(player, anchor, range, render_ids)
   storage.highlight_renders[player.index] = render_ids
   storage.highlight_last_state[player.index] = state
 end
@@ -175,6 +212,38 @@ function Highlight.on_cursor_stack_changed(player_index)
     draw_player_highlight(player)
   else
     stop_highlight(player.index)
+  end
+end
+
+--- Makes every player highlighting on the surface redraw on the next tick; call
+--- when a radar is built there.
+---
+--- The redraw-skip check in Highlight.on_tick compares only the surface, view
+--- range and anchor, so a wider radar built next to a player standing still
+--- would otherwise get no warning icon until they move.
+---@param surface_index uint
+function Highlight.request_redraw(surface_index)
+  for player_index in pairs(storage.highlight_last_state) do
+    local player = game.get_player(player_index)
+    if player and player.valid and player.surface.index == surface_index then
+      storage.highlight_last_state[player_index] = nil
+    end
+  end
+end
+
+--- Redraws the player's highlight on the next tick when they changed a setting
+--- it depends on; wire to defines.events.on_runtime_mod_setting_changed.
+---
+--- Changing mod settings keeps the radar in the cursor, so without this the
+--- old color and hint icons would stay until the player moves.
+---@param setting_name string
+---@param player_index uint|nil  the player whose per-user setting changed
+function Highlight.on_setting_changed(setting_name, player_index)
+  if not player_index then
+    return
+  end
+  if setting_name == COLOR_SETTING or setting_name == Notice.HINT_SETTING then
+    storage.highlight_last_state[player_index] = nil
   end
 end
 

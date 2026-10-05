@@ -1,6 +1,7 @@
 local Notice = {}
 
-local HINT_SETTING = "radar-alignment-guide-show-hints"
+--- Name of the per-player setting that turns hints on or off.
+Notice.HINT_SETTING = "radar-alignment-guide-show-hints"
 
 --- Color for messages that ask players to act (e.g. re-designate a lost anchor).
 Notice.WARNING_COLOR = { r = 1, g = 0.7, b = 0.3 }
@@ -72,11 +73,11 @@ function Notice.player_name(player)
   return { "multiplayer.player-fallback", player.name or "" }
 end
 
---- True when the player wants hints (flying texts and alerts).
+--- True when the player wants hints (flying texts, alerts and warning icons).
 ---@param player LuaPlayer
 ---@return boolean
 function Notice.hints_enabled(player)
-  return settings.get_player_settings(player)[HINT_SETTING].value
+  return settings.get_player_settings(player)[Notice.HINT_SETTING].value
 end
 
 --- Shows a flying text to the player unless they turned hints off.
