@@ -96,18 +96,6 @@ local function create_chart_tag(record, radar)
   end
 end
 
---- Wider-coverage alerts compare against the anchor, so they go stale once it
---- is replaced or gone.
-local function clear_outranges_alerts(force_index, surface_index)
-  local force = game.forces[force_index]
-  if not (force and force.valid) then
-    return
-  end
-  for _, player in pairs(force.players) do
-    player.remove_alert({ type = defines.alert_type.custom, surface = surface_index, message = OUTRANGES_ALERT })
-  end
-end
-
 --- Drop the anchor record for (force_index, surface_index), destroying its
 --- marker and chart tag. Safe to call when there is no record.
 local function forget(force_index, surface_index)
@@ -118,7 +106,6 @@ local function forget(force_index, surface_index)
   end
   destroy_marker(record)
   destroy_chart_tag(record)
-  clear_outranges_alerts(force_index, surface_index)
   by_surface[surface_index] = nil
 end
 
@@ -328,7 +315,8 @@ end
 --- Adds an alert at a radar that covers more area than the anchor, for the
 --- player who ordered it when it was built without them present (typically a
 --- robot reviving their ghost). They may be far away, so a flying text would go
---- unseen; the alert stays until the anchor changes (see clear_outranges_alerts).
+--- unseen. A custom alert expires after about 10 seconds like any game alert, so
+--- this tells them the radar was built rather than marking it for later.
 local function alert_orderer(entity)
   local player = entity.last_user
   if not (player and player.valid and player.connected) then

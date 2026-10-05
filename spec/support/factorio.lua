@@ -217,8 +217,7 @@ end
 
 --- Build a fake player and register it for game.get_player. `name = false`
 --- gives a player without a name (single-player, not logged in). Chat it receives
---- goes to player.printed, alerts to player.alerts (a removal drops the matching
---- entries).
+--- goes to player.printed, alerts to player.alerts.
 function factorio.player(opts)
   opts = opts or {}
   local index = opts.index or 1
@@ -248,18 +247,6 @@ function factorio.player(opts)
   function player.add_custom_alert(entity, icon, message, show_on_map)
     table.insert(player.alerts, { entity = entity, icon = icon, message = message, show_on_map = show_on_map })
   end
-  function player.remove_alert(filter)
-    local kept = {}
-    for _, alert in ipairs(player.alerts) do
-      local matches = filter.type == defines.alert_type.custom
-        and filter.surface == alert.entity.surface.index
-        and filter.message[1] == alert.message[1]
-      if not matches then
-        kept[#kept + 1] = alert
-      end
-    end
-    player.alerts = kept
-  end
   factorio._players[player.index] = player
   return player
 end
@@ -284,10 +271,6 @@ _G.rendering = {
   get_object_by_id = function(id)
     return render_objects[id]
   end,
-}
-
-_G.defines = {
-  alert_type = { custom = 8 },
 }
 
 _G.settings = {

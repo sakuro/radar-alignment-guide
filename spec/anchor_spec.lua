@@ -113,17 +113,6 @@ describe("Anchor", function()
       assert.same({}, online.alerts)
     end)
 
-    it("removes wider-coverage alerts once the anchor changes", function()
-      set_anchor(factorio.radar({ unit_number = 1, range = 3 }))
-      local orderer = factorio.player({ index = 1 })
-      local wider = factorio.radar({ unit_number = 2, range = 5, last_user = orderer })
-      Anchor.on_built(wider, nil)
-
-      set_anchor(wider)
-
-      assert.same({}, orderer.alerts)
-    end)
-
     it("warns the builder when the new radar out-ranges the anchor", function()
       set_anchor(factorio.radar({ unit_number = 1, range = 3 }))
       local player = factorio.player({ index = 1 })
